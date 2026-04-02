@@ -269,10 +269,113 @@ def get_identifiers(identifier, known=None):
     return result
 
 
+_ELI  = "http://data.europa.eu/eli/ontology#"
+_CIT  = "https://example.org/cjeu/citation#"
+_BASE = "https://e.cjeu.europa.eu/judgment/"
+
+
+def _judgment_uri(ecli=None, celex=None):
+    from rdflib import URIRef
+    if ecli:
+        return URIRef(f"{_BASE}{ecli}")
+    if celex:
+        return URIRef(f"{_BASE}{celex}")
+    return None
+
+
+def save_to_rdf(folder, output="citations.ttl"):
+    from rdflib import Graph, URIRef, Literal, Namespace, RDF
+    from rdflib.namespace import DCTERMS
+
+    CIT = Namespace(_CIT)
+    ELI = Namespace(_ELI)
+
+    g = Graph()
+    g.bind("cit", CIT)
+    g.bind("eli", ELI)
+    g.bind("dcterms", DCTERMS)
+
+    # Parse citations first so we know which judgments actually appear
+    rows = parse_files(folder)
+
+    # Collect only the judgment URIs that are referenced in the citation network
+    used_uris = set()
+    for row in rows:
+        src_j = _judgment_uri(ecli=row["source_ecli"] or None, celex=row["source_celex"])
+        cit_j = _judgment_uri(ecli=row["cited_ecli"] or None, celex=row["cited_celex"] or None)
+        if src_j:
+            used_uris.add(str(src_j))
+        if cit_j:
+            used_uris.add(str(cit_j))
+
+    # Emit metadata only for judgments that appear in the citation network
+    df = _load_db()
+    for _, row in df.iterrows():
+        j_uri = _judgment_uri(ecli=row["ECLI"] or None, celex=row["CELEX"] or None)
+        if j_uri is None or str(j_uri) not in used_uris:
+            continue
+        g.add((j_uri, RDF.type, ELI.LegalResource))
+        if row["CELEX"]:
+            g.add((j_uri, ELI.id_local, Literal(row["CELEX"])))
+        if row["ECLI"]:
+            g.add((j_uri, DCTERMS.identifier, Literal(row["ECLI"])))
+        if row["CASE_NO"]:
+            g.add((j_uri, ELI.number, Literal(row["CASE_NO"])))
+        if row["TITLE"]:
+            g.add((j_uri, DCTERMS.title, Literal(row["TITLE"], lang="en")))
+
+    # Add citation triples
+    for i, row in enumerate(rows):
+        src_j = _judgment_uri(ecli=row["source_ecli"] or None, celex=row["source_celex"])
+        cit_j = _judgment_uri(ecli=row["cited_ecli"] or None, celex=row["cited_celex"] or None)
+
+        if src_j is None:
+            continue
+
+        # Source paragraph node
+        src_para_no = row["source_paragraph"]
+        if src_para_no:
+            src_p = URIRef(f"{src_j}#{src_para_no}")
+            g.add((src_p, RDF.type, CIT.Paragraph))
+            g.add((src_p, CIT.ofJudgment, src_j))
+            g.add((src_p, CIT.paragraphNumber, Literal(src_para_no)))
+        else:
+            src_p = src_j
+
+        # Citation node — cit:sourceJudgment and cit:citedJudgment are denormalized
+        # shortcuts that make common aggregate queries fast (no multi-hop joins needed)
+        cit_node = URIRef(f"{_CIT}citation/{i}")
+        g.add((cit_node, RDF.type, CIT.Citation))
+        g.add((cit_node, CIT.sourceParagraph, src_p))
+        g.add((cit_node, CIT.sourceJudgment, src_j))
+
+        if cit_j is not None:
+            g.add((cit_node, CIT.citedJudgment, cit_j))
+            if row["cited_paragraphs"]:
+                for para_no in row["cited_paragraphs"]:
+                    cited_p = URIRef(f"{cit_j}#{para_no.strip()}")
+                    g.add((cited_p, RDF.type, CIT.Paragraph))
+                    g.add((cited_p, CIT.ofJudgment, cit_j))
+                    g.add((cited_p, CIT.paragraphNumber, Literal(para_no.strip())))
+                    g.add((cit_node, CIT.citesParagraph, cited_p))
+            else:
+                g.add((cit_node, CIT.citesJudgment, cit_j))
+
+    g.serialize(output, format="turtle")
+    print(f"Saved {len(rows)} citations to {output} ({len(g)} triples)")
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Parse citations from Formex XML files and save to SQLite database")
-    parser.add_argument("--reset", action="store_true", help="Reset the database before saving")
+    parser = argparse.ArgumentParser(description="Parse citations from Formex XML files")
+    parser.add_argument("--reset", action="store_true", help="Reset the database before saving (db mode only)")
+    parser.add_argument("--output", choices=["db", "rdf"], default="db",
+                        help="Output format: 'db' for SQLite (default), 'rdf' for Turtle RDF")
+    parser.add_argument("--rdf-file", default="citations.ttl",
+                        help="Output filename for RDF (default: citations.ttl)")
     args = parser.parse_args()
-    if args.reset:
-        reset_db()
-    save_to_db(folder="formex")
+    if args.output == "rdf":
+        save_to_rdf(folder="formex", output=args.rdf_file)
+    else:
+        if args.reset:
+            reset_db()
+        save_to_db(folder="formex")

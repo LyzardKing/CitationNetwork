@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CJEU Privacy Citation Network</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; display: flex; height: 100vh; overflow: hidden; background: #f5f5f5; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 270px; min-width: 270px; background: #1e3a5f; color: #fff;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #sidebar h1 {
+      font-size: .9rem; line-height: 1.3; padding: 1rem;
+      background: #152d4a; border-bottom: 1px solid #2a4f7c;
+    }
+    #sidebar h2 {
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+      color: #8ab4d4; padding: .8rem 1rem .3rem;
+    }
+    #queries { flex: 1; overflow-y: auto; }
+    .query-btn {
+      display: block; width: 100%; text-align: left;
+      padding: .6rem 1rem; background: none; border: none;
+      border-left: 3px solid transparent; color: #cce0f5;
+      cursor: pointer; font-size: .82rem; line-height: 1.3;
+    }
+    .query-btn:hover { background: #2a4f7c; }
+    .query-btn.active { border-left-color: #5ba3d9; background: #2a4f7c; color: #fff; }
+
+    /* ── Main ── */
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    #loading-bar {
+      height: 3px; display: none;
+      background: linear-gradient(90deg, #5ba3d9 30%, #1e3a5f 60%, #5ba3d9);
+      background-size: 200%;
+      animation: shimmer 1.2s linear infinite;
+    }
+    @keyframes shimmer { to { background-position: -200%; } }
+
+    #editor-area { padding: .85rem 1rem; background: #fff; border-bottom: 1px solid #ddd; }
+    #editor-area label { font-size: .75rem; font-weight: 700; color: #555; display: block; margin-bottom: .35rem; }
+    #sparql-input {
+      width: 100%; height: 130px; resize: vertical;
+      font-family: 'Fira Mono', 'Cascadia Code', monospace; font-size: .8rem;
+      border: 1px solid #c8d0dd; border-radius: 4px; padding: .5rem;
+      line-height: 1.5; color: #1a1a2e;
+    }
+    #sparql-input:focus { outline: none; border-color: #5ba3d9; }
+    #toolbar { margin-top: .5rem; display: flex; align-items: center; gap: .75rem; }
+    #run-btn {
+      padding: .4rem 1.1rem; background: #1e3a5f; color: #fff;
+      border: none; border-radius: 4px; cursor: pointer; font-size: .82rem;
+    }
+    #run-btn:hover:not(:disabled) { background: #2a4f7c; }
+    #run-btn:disabled { background: #aaa; cursor: default; }
+    #status { font-size: .78rem; color: #666; }
+
+    /* ── Results ── */
+    #results-area { flex: 1; overflow: auto; padding: 1rem; }
+    #no-results { color: #888; font-style: italic; }
+    table { border-collapse: collapse; width: 100%; font-size: .8rem; }
+    th {
+      background: #1e3a5f; color: #fff; padding: .45rem .75rem;
+      text-align: left; white-space: nowrap;
+      position: sticky; top: 0; z-index: 1;
+    }
+    td { padding: .38rem .75rem; border-bottom: 1px solid #eee; vertical-align: top; }
+    tr:hover td { background: #f0f6ff; }
+    .uri a {
+      color: #1e3a5f; text-decoration: none;
+      font-family: monospace; font-size: .75rem;
+    }
+    .uri a:hover { text-decoration: underline; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .err { color: #c0392b; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>CJEU Privacy<br>Citation Network</h1>
+  <h2>Saved Queries</h2>
+  <div id="queries"></div>
+</div>
+
+<div id="main">
+  <div id="loading-bar"></div>
+  <div id="editor-area">
+    <label for="sparql-input">SPARQL &mdash; Ctrl+Enter to run</label>
+    <textarea id="sparql-input" spellcheck="false"></textarea>
+    <div id="toolbar">
+      <button id="run-btn" disabled>Run</button>
+      <span id="status">Loading Comunica engine…</span>
+    </div>
+  </div>
+  <div id="results-area">
+    <p id="no-results">Select a saved query or write your own, then click Run.</p>
+  </div>
+</div>
+
+<script src="http://rdf.js.org/comunica-browser/versions/latest/engines/query-sparql/comunica-browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/n3@2.0.3/browser/n3.min.js"></script>
+
+<script>
+"use strict";
+
+const TTL_URL = new URL("citations.ttl", window.location.href).href;
+
+const PFX = `PREFIX cit:     <https://example.org/cjeu/citation#>
+PREFIX eli:     <http://data.europa.eu/eli/ontology#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+`;
+
+const SAVED_QUERIES = [
+  {
+    title: "Most-cited paragraphs",
+    sparql: PFX +
+`SELECT ?cited ?paragraph ?title (COUNT(?cit) AS ?times_cited)
+WHERE {
+  ?cit a cit:Citation ; cit:citesParagraph ?p .
+  ?p cit:ofJudgment ?cited ; cit:paragraphNumber ?paragraph .
+  OPTIONAL { ?cited dcterms:title ?title }
+}
+GROUP BY ?cited ?paragraph ?title
+ORDER BY DESC(?times_cited)
+LIMIT 50`,
+  },
+  {
+    title: "Most-cited cases",
+    sparql: PFX +
+`SELECT ?cited ?title
+       (COUNT(?cit) AS ?total_citations)
+       (COUNT(DISTINCT ?src) AS ?citing_cases)
+WHERE {
+  ?cit a cit:Citation ;
+       cit:sourceJudgment ?src ;
+       cit:citedJudgment ?cited .
+  OPTIONAL { ?cited dcterms:title ?title }
+}
+GROUP BY ?cited ?title
+ORDER BY DESC(?total_citations)
+LIMIT 50`,
+  },
+  {
+    title: "Most-citing source paragraphs",
+    sparql: PFX +
+`SELECT ?src ?srcPara ?text (COUNT(?cit) AS ?outgoing)
+WHERE {
+  ?cit a cit:Citation ; cit:sourceParagraph ?sp .
+  ?sp cit:ofJudgment ?src ; cit:paragraphNumber ?srcPara .
+  OPTIONAL { ?sp cit:text ?text }
+}
+GROUP BY ?src ?srcPara ?text
+ORDER BY DESC(?outgoing)
+LIMIT 50`,
+  },
+  {
+    title: "Citations by source case",
+    sparql: PFX +
+`SELECT ?src (COUNT(?cit) AS ?citations_made)
+WHERE {
+  ?cit a cit:Citation ; cit:sourceJudgment ?src .
+}
+GROUP BY ?src
+ORDER BY DESC(?citations_made)`,
+  },
+  {
+    title: "Paragraph citation detail",
+    sparql: PFX +
+`SELECT ?src ?srcPara ?cited ?citedPara (COUNT(?cit) AS ?occurrences)
+WHERE {
+  ?cit a cit:Citation ;
+       cit:sourceParagraph ?sp ;
+       cit:citesParagraph ?tp .
+  ?sp cit:ofJudgment ?src ; cit:paragraphNumber ?srcPara .
+  ?tp cit:ofJudgment ?cited ; cit:paragraphNumber ?citedPara .
+}
+GROUP BY ?src ?srcPara ?cited ?citedPara
+ORDER BY DESC(?occurrences)
+LIMIT 200`,
+  },
+];
+
+/* ── Build sidebar ── */
+const queriesEl = document.getElementById("queries");
+const editor    = document.getElementById("sparql-input");
+const runBtn    = document.getElementById("run-btn");
+const statusEl  = document.getElementById("status");
+const resultsEl = document.getElementById("results-area");
+const loadingBar= document.getElementById("loading-bar");
+
+SAVED_QUERIES.forEach((q) => {
+  const btn = document.createElement("button");
+  btn.className = "query-btn";
+  btn.textContent = q.title;
+  btn.addEventListener("click", () => {
+    queriesEl.querySelectorAll(".query-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    editor.value = q.sparql;
+  });
+  queriesEl.appendChild(btn);
+});
+
+// Select first query
+queriesEl.querySelector(".query-btn").click();
+
+/* ── Init Comunica + pre-load dataset ── */
+let engine = null;
+let rdfStore = null;
+
+(async () => {
+  try {
+    engine = new Comunica.QueryEngine();
+    statusEl.textContent = "Loading dataset…";
+    const ttlText = await fetch(TTL_URL).then(r => r.text());
+    rdfStore = new N3.Store();
+    await new Promise((resolve, reject) => {
+      new N3.Parser().parse(ttlText, (err, quad) => {
+        if (err) return reject(err);
+        if (quad) rdfStore.add(quad);
+        else resolve();
+      });
+    });
+    statusEl.textContent = `Ready — ${rdfStore.size.toLocaleString()} triples loaded. Ctrl+Enter to run.`;
+    runBtn.disabled = false;
+  } catch (e) {
+    statusEl.textContent = "Init failed: " + e.message;
+  }
+})();
+
+/* ── Run query ── */
+runBtn.addEventListener("click", runQuery);
+editor.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runQuery();
+});
+
+async function runQuery() {
+  if (!engine || !rdfStore) return;
+  const sparql = editor.value.trim();
+  if (!sparql) return;
+
+  runBtn.disabled = true;
+  loadingBar.style.display = "block";
+  statusEl.textContent = "Querying…";
+  resultsEl.innerHTML = "";
+
+  try {
+    const bindingsStream = await engine.queryBindings(sparql, {
+      sources: [rdfStore],
+    });
+    const bindings = await bindingsStream.toArray();
+
+    if (bindings.length === 0) {
+      resultsEl.innerHTML = '<p id="no-results">No results.</p>';
+      statusEl.textContent = "0 results.";
+      return;
+    }
+
+    const vars = [...bindings[0].keys()].map(k => k.value);
+    const numVars = new Set(
+      vars.filter(v => bindings.some(b => {
+        const t = b.get(v);
+        return t && t.termType === "Literal" && !isNaN(t.value);
+      }))
+    );
+
+    const table = document.createElement("table");
+    const thead = table.createTHead();
+    const hrow  = thead.insertRow();
+    vars.forEach(v => {
+      const th = document.createElement("th");
+      th.textContent = v;
+      hrow.appendChild(th);
+    });
+
+    const tbody = table.createTBody();
+    bindings.forEach(b => {
+      const row = tbody.insertRow();
+      vars.forEach(v => {
+        const td   = row.insertCell();
+        const term = b.get(v);
+        if (!term) return;
+        if (term.termType === "NamedNode") {
+          td.className = "uri";
+          const a = document.createElement("a");
+          a.href   = term.value;
+          a.target = "_blank";
+          a.rel    = "noopener noreferrer";
+          // shorten: keep everything after last / or #
+          a.textContent = term.value.replace(/^.*[/#]/, "");
+          a.title = term.value;
+          td.appendChild(a);
+        } else {
+          if (numVars.has(v)) td.className = "num";
+          td.textContent = term.value;
+        }
+      });
+    });
+
+    resultsEl.appendChild(table);
+    statusEl.textContent = `${bindings.length} result(s).`;
+  } catch (e) {
+    resultsEl.innerHTML = `<p class="err">Error: ${e.message}</p>`;
+    statusEl.textContent = "Query failed.";
+  } finally {
+    runBtn.disabled = false;
+    loadingBar.style.display = "none";
+  }
+}
+</script>
+</body>
+</html>
