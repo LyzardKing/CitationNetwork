@@ -121,6 +121,53 @@
       margin-bottom: .35rem;
     }
 
+    #sort-controls {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #ddd;
+    }
+
+    #sort-controls h3 {
+      font-size: .75rem;
+      font-weight: 700;
+      color: #555;
+      margin-bottom: .5rem;
+    }
+
+    .sort-item {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .4rem;
+      font-size: .75rem;
+    }
+
+    .sort-item input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    .sort-item select {
+      padding: .2rem .4rem;
+      font-size: .75rem;
+      border: 1px solid #c8d0dd;
+      border-radius: 3px;
+    }
+
+    .sort-item button {
+      padding: .2rem .4rem;
+      font-size: .7rem;
+      background: var(--bg-dark);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: auto;
+    }
+
+    .sort-item button:hover {
+      background: var(--bg-hover);
+    }
+
     #sparql-input {
       width: 100%;
       height: 130px;
@@ -247,6 +294,10 @@
     <div id="editor-area">
       <label for="sparql-input">SPARQL &mdash; Ctrl+Enter to run</label>
       <textarea id="sparql-input" spellcheck="false"></textarea>
+      <div id="sort-controls">
+        <h3>Order By</h3>
+        <div id="sort-items"></div>
+      </div>
       <div id="toolbar">
         <button id="run-btn" disabled>Run</button>
         <span id="status">Loading Comunica engine…</span>
@@ -257,12 +308,10 @@
     </div>
   </div>
 
-  <script
-    src="https://cdn.jsdelivr.net/gh/rdfjs/comunica-browser@master/versions/v5/engines/query-sparql/comunica-browser.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/n3@2.0.3/browser/n3.min.js"></script>
-
-  <script>
+  <script type="module">
     "use strict";
+
+    import oxiInit, * as oxigraph from "https://cdn.jsdelivr.net/npm/oxigraph@0.5.6/web.js";
 
     const TTL_URL = new URL("citations.ttl", window.location.href).href;
 
@@ -343,16 +392,20 @@ ORDER BY DESC(?citations_made)`,
       {
         title: "Paragraph citation detail",
         sparql: PFX +
-          `SELECT ?src ?srcPara ?cited ?citedPara (COUNT(?cit) AS ?occurrences)
+          `SELECT ?src ?srcPara ?srcTextCleaned ?cited ?citedPara ?citedTextCleaned
 WHERE {
   ?cit a cit:Citation ;
        cit:sourceParagraph ?sp ;
        cit:citesParagraph ?tp .
   ?sp cit:ofJudgment ?src ; cit:paragraphNumber ?srcPara .
   ?tp cit:ofJudgment ?cited ; cit:paragraphNumber ?citedPara .
+  OPTIONAL { ?sp cit:text ?srcText }
+  OPTIONAL { ?tp cit:text ?citedText }
+  BIND(COALESCE(?srcText, "") AS ?srcTextCleaned)
+  BIND(COALESCE(?citedText, "") AS ?citedTextCleaned)
+  FILTER(BOUND(?srcText) || BOUND(?citedText))
 }
-GROUP BY ?src ?srcPara ?cited ?citedPara
-ORDER BY DESC(?occurrences)
+GROUP BY ?src ?srcPara ?srcTextCleaned ?cited ?citedPara ?citedTextCleaned
 LIMIT 200`,
       },
     ];
@@ -372,46 +425,183 @@ LIMIT 200`,
 
       if (isPara) {
         return PFX +
-          `SELECT ?src ?cited ?srcPara ?citedPara
+`SELECT ?src ?cited ?srcPara ?srcText ?citedPara ?citedText
 WHERE {
-  { ?cit cit:sourceParagraph ${u} . BIND(${u} AS ?sp) }
+  ?cit a cit:Citation .
+  { ?cit cit:sourceParagraph ${u} }
   UNION
-  { ?cit cit:citesParagraph ${u} . BIND(${u} AS ?tp) }
+  { ?cit cit:citesParagraph ${u} }
   OPTIONAL { ?cit cit:sourceJudgment ?src }
   OPTIONAL { ?cit cit:citedJudgment ?cited }
-  OPTIONAL { ?sp cit:paragraphNumber ?srcPara }
-  OPTIONAL { ?tp cit:paragraphNumber ?citedPara }
+  OPTIONAL {
+    ?cit cit:sourceParagraph ?sp .
+    ?sp cit:paragraphNumber ?srcPara .
+    OPTIONAL { ?sp cit:text ?srcText }
+  }
+  OPTIONAL {
+    ?cit cit:citesParagraph ?tp .
+    ?tp cit:paragraphNumber ?citedPara .
+    OPTIONAL { ?tp cit:text ?citedText }
+  }
 }
 ORDER BY ?src ?cited`;
       } else {
-        // Optimized: Use UNION and BIND instead of FILTER
         return PFX +
-          `SELECT ?src ?srcPara ?cited ?citedPara (COUNT(?cit) AS ?occurrences)
+`SELECT ?src ?srcPara ?cited ?citedPara (COUNT(?cit) AS ?occurrences)
 WHERE {
-  { 
-    ?cit cit:sourceJudgment ${u} ; cit:citedJudgment ?cited .
-    BIND(${u} AS ?src)
-  }
-  UNION
-  { 
-    ?cit cit:citedJudgment ${u} ; cit:sourceJudgment ?src .
-    BIND(${u} AS ?cited)
-  }
+  ?cit a cit:Citation ;
+       cit:sourceJudgment ?src ;
+       cit:citedJudgment ?cited .
   OPTIONAL { ?cit cit:sourceParagraph ?sp . ?sp cit:paragraphNumber ?srcPara }
   OPTIONAL { ?cit cit:citesParagraph ?tp . ?tp cit:paragraphNumber ?citedPara }
+  FILTER (?src = ${u} || ?cited = ${u})
 }
 GROUP BY ?src ?srcPara ?cited ?citedPara
 ORDER BY DESC(?occurrences)`;
       }
     }
 
+    /* ── Sort builder ── */
+    function extractSelectVars(sparql) {
+      const selectMatch = sparql.match(/SELECT\s+(.*?)(?:WHERE|where)/is);
+      if (!selectMatch) return [];
+      const selectPart = selectMatch[1];
+      const vars = [];
+      const varMatches = selectPart.matchAll(/\?(\w+)/g);
+      for (const m of varMatches) {
+        vars.push(m[1]);
+      }
+      return vars;
+    }
+
+    function updateSortControls() {
+      const sparql = editor.value.trim();
+      const vars = extractSelectVars(sparql);
+      const sortItemsEl = document.getElementById("sort-items");
+      sortItemsEl.innerHTML = "";
+      
+      if (vars.length === 0) return;
+      
+      // Single dropdown to select variable
+      const selectDiv = document.createElement("div");
+      selectDiv.style.display = "flex";
+      selectDiv.style.gap = ".5rem";
+      selectDiv.style.alignItems = "center";
+      selectDiv.style.marginBottom = ".5rem";
+      
+      const dropdown = document.createElement("select");
+      dropdown.id = "sort-var-select";
+      dropdown.innerHTML = '<option value="">Select variable...</option>' + 
+        vars.map(v => `<option value="${v}">${v}</option>`).join("");
+      
+      const dirSelect = document.createElement("select");
+      dirSelect.id = "sort-dir-select";
+      dirSelect.innerHTML = '<option value="ASC">ASC</option><option value="DESC">DESC</option>';
+      
+      const addBtn = document.createElement("button");
+      addBtn.textContent = "Add";
+      addBtn.style.padding = ".2rem .6rem";
+      addBtn.style.fontSize = ".75rem";
+      addBtn.style.background = "var(--bg-dark)";
+      addBtn.style.color = "#fff";
+      addBtn.style.border = "none";
+      addBtn.style.borderRadius = "3px";
+      addBtn.style.cursor = "pointer";
+      
+      addBtn.addEventListener("click", () => {
+        const varName = dropdown.value;
+        if (varName) {
+          addSortItem(varName, dirSelect.value, listsDiv);
+          dropdown.value = "";
+          dropdown.focus();
+        }
+      });
+      
+      selectDiv.appendChild(dropdown);
+      selectDiv.appendChild(dirSelect);
+      selectDiv.appendChild(addBtn);
+      sortItemsEl.appendChild(selectDiv);
+      
+      // Container for selected sort items
+      const listsDiv = document.createElement("div");
+      listsDiv.id = "sort-list";
+      sortItemsEl.appendChild(listsDiv);
+      
+      dropdown.focus();
+    }
+
+    function addSortItem(varName, dir, containerEl) {
+      const div = document.createElement("div");
+      div.className = "sort-item";
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.gap = ".5rem";
+      div.style.marginBottom = ".3rem";
+      
+      const label = document.createElement("span");
+      label.textContent = varName;
+      label.style.minWidth = "60px";
+      
+      const dirSelect = document.createElement("select");
+      dirSelect.innerHTML = '<option value="ASC">ASC</option><option value="DESC">DESC</option>';
+      dirSelect.value = dir;
+      dirSelect.addEventListener("change", rebuildOrderBy);
+      
+      const removeBtn = document.createElement("button");
+      removeBtn.textContent = "×";
+      removeBtn.style.padding = "0 .4rem";
+      removeBtn.style.fontSize = ".9rem";
+      removeBtn.style.background = "#ccc";
+      removeBtn.style.border = "none";
+      removeBtn.style.borderRadius = "2px";
+      removeBtn.style.cursor = "pointer";
+      removeBtn.addEventListener("click", () => {
+        div.remove();
+        rebuildOrderBy();
+      });
+      
+      div.appendChild(label);
+      div.appendChild(dirSelect);
+      div.appendChild(removeBtn);
+      containerEl.appendChild(div);
+      
+      rebuildOrderBy();
+    }
+
+    function rebuildOrderBy() {
+      const sortItems = Array.from(document.querySelectorAll("#sort-list .sort-item"));
+      const clauses = sortItems.map(item => {
+        const label = item.querySelector("span").textContent;
+        const dir = item.querySelector("select").value;
+        return `${dir}(?${label})`;
+      });
+      
+      if (clauses.length === 0) return;
+      
+      let sparql = editor.value;
+      // Remove existing ORDER BY clause (but keep LIMIT if it exists)
+      sparql = sparql.replace(/ORDER BY\s+.*?(?=\s*(?:LIMIT|$))/im, "").trim();
+      
+      // Add new ORDER BY before LIMIT or at the end
+      if (sparql.match(/LIMIT/i)) {
+        sparql = sparql.replace(/(\s*LIMIT)/i, "\nORDER BY " + clauses.join(" ") + "\n$1");
+      } else {
+        sparql += "\nORDER BY " + clauses.join(" ");
+      }
+      
+      editor.value = sparql;
+    }
+
     /* ── Build sidebar ── */
     const queriesEl = document.getElementById("queries");
     const editor = document.getElementById("sparql-input");
+    
     const runBtn = document.getElementById("run-btn");
     const statusEl = document.getElementById("status");
     const resultsEl = document.getElementById("results-area");
     const loadingBar = document.getElementById("loading-bar");
+    let pendingSavedQueryRun = false;
+    let rdfStore = null;
 
     SAVED_QUERIES.forEach((q) => {
       const btn = document.createElement("button");
@@ -421,6 +611,12 @@ ORDER BY DESC(?occurrences)`;
         queriesEl.querySelectorAll(".query-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         editor.value = q.sparql;
+        updateSortControls();
+        if (rdfStore) {
+          runQuery();
+        } else {
+          pendingSavedQueryRun = true;
+        }
       });
       queriesEl.appendChild(btn);
     });
@@ -428,25 +624,21 @@ ORDER BY DESC(?occurrences)`;
     // Select first query
     queriesEl.querySelector(".query-btn").click();
 
-    /* ── Init Comunica + pre-load dataset ── */
-    let engine = null;
-    let rdfStore = null;
-
+    /* ── Init Oxigraph + pre-load dataset ── */
     (async () => {
       try {
-        engine = new Comunica.QueryEngine();
+        statusEl.textContent = "Loading Oxigraph WASM…";
+        await oxiInit();
         statusEl.textContent = "Loading dataset…";
         const ttlText = await fetch(TTL_URL).then(r => r.text());
-        rdfStore = new N3.Store();
-        await new Promise((resolve, reject) => {
-          new N3.Parser().parse(ttlText, (err, quad) => {
-            if (err) return reject(err);
-            if (quad) rdfStore.add(quad);
-            else resolve();
-          });
-        });
+        rdfStore = new oxigraph.Store();
+        rdfStore.load(ttlText, { format: "ttl", base_iri: window.location.href });
         statusEl.textContent = `Ready — ${rdfStore.size.toLocaleString()} triples loaded. Ctrl+Enter to run.`;
         runBtn.disabled = false;
+        if (pendingSavedQueryRun) {
+          pendingSavedQueryRun = false;
+          runQuery();
+        }
       } catch (e) {
         statusEl.textContent = "Init failed: " + e.message;
       }
@@ -457,7 +649,7 @@ ORDER BY DESC(?occurrences)`;
       const row = tbody.insertRow();
       vars.forEach(v => {
         const td = row.insertCell();
-        const term = b.get(v);
+        const term = b[v];
         if (!term) return;
         if (term.termType === "NamedNode") {
           td.className = "uri";
@@ -472,6 +664,7 @@ ORDER BY DESC(?occurrences)`;
               e.preventDefault();
               editor.value = buildFilterQuery(term.value);
               queriesEl.querySelectorAll(".query-btn").forEach(b => b.classList.remove("active"));
+              updateSortControls();
               runQuery();
             });
           } else {
@@ -496,7 +689,7 @@ ORDER BY DESC(?occurrences)`;
     });
 
     async function runQuery() {
-      if (!engine || !rdfStore) return;
+      if (!rdfStore) return;
       const sparql = editor.value.trim();
       if (!sparql) return;
 
@@ -508,60 +701,67 @@ ORDER BY DESC(?occurrences)`;
       resultsEl.innerHTML = "";
 
       try {
-        const bindingsStream = await engine.queryBindings(sparql, { sources: [rdfStore] });
-        if (queryId !== currentQueryId) { bindingsStream.destroy?.(); return; }
-
-        let table = null, tbody = null, vars = null;
-        const numVars = new Set();
-        let count = 0;
-        const CHUNK = 50;
-        let pending = [];
-
-        const flush = () => {
-          for (const b of pending) appendRow(tbody, b, vars, numVars);
-          pending = [];
-        };
-
-        for await (const b of bindingsStream) {
-          if (queryId !== currentQueryId) { bindingsStream.destroy?.(); return; }
-
-          if (!vars) {
-            vars = [...b.keys()].map(k => k.value);
-            table = document.createElement("table");
-            const thead = table.createTHead();
-            const hrow = thead.insertRow();
-            vars.forEach(v => {
-              const th = document.createElement("th");
-              th.textContent = v;
-              hrow.appendChild(th);
-            });
-            tbody = table.createTBody();
-            resultsEl.appendChild(table);
-          }
-
-          vars.forEach(v => {
-            const t = b.get(v);
-            if (t && t.termType === "Literal" && !isNaN(t.value)) numVars.add(v);
-          });
-
-          count++;
-          pending.push(b);
-          if (pending.length >= CHUNK) {
-            flush();
-            statusEl.textContent = `${count} result(s)…`;
-            await new Promise(r => setTimeout(r, 0));
-          }
+        const result = rdfStore.query(sparql);
+        if (queryId !== currentQueryId) return;
+        if (!Array.isArray(result)) {
+          throw new Error("Only SELECT queries are supported in this UI.");
         }
 
-        if (queryId !== currentQueryId) return;
-        flush();
+        const bindings = result.map((binding) => {
+          const row = {};
+          for (const [key, value] of binding.entries()) {
+            const name = (typeof key === "string")
+              ? key.replace(/^\?/, "")
+              : ((key && key.value) ? key.value.replace(/^\?/, "") : String(key).replace(/^\?/, ""));
+            row[name] = value;
+          }
+          return row;
+        });
 
-        if (count === 0) {
+        if (bindings.length === 0) {
           resultsEl.innerHTML = '<p id="no-results">No results.</p>';
           statusEl.textContent = "0 results.";
-        } else {
-          statusEl.textContent = `${count} result(s).`;
+          return;
         }
+
+        let table = null, tbody = null;
+        const vars = Object.keys(bindings[0]);
+        const numVars = new Set();
+        let count = bindings.length;
+        const CHUNK = 50;
+        let pending = bindings.slice();
+
+        table = document.createElement("table");
+        const thead = table.createTHead();
+        const hrow = thead.insertRow();
+        vars.forEach(v => {
+          const th = document.createElement("th");
+          th.textContent = v;
+          hrow.appendChild(th);
+        });
+        tbody = table.createTBody();
+        resultsEl.appendChild(table);
+
+        bindings.forEach(b => {
+          vars.forEach(v => {
+            const t = b[v];
+            if (t && t.termType === "Literal" && !isNaN(t.value)) numVars.add(v);
+          });
+        });
+
+        const flush = () => {
+          const chunk = pending.splice(0, CHUNK);
+          for (const b of chunk) appendRow(tbody, b, vars, numVars);
+        };
+
+        while (pending.length > 0) {
+          if (queryId !== currentQueryId) return;
+          flush();
+          statusEl.textContent = `${count - pending.length} / ${count} result(s)…`;
+          await new Promise(r => setTimeout(r, 0));
+        }
+
+        statusEl.textContent = `${count} result(s).`;
       } catch (e) {
         if (queryId !== currentQueryId) return;
         resultsEl.innerHTML = `<p class="err">Error: ${e.message}</p>`;

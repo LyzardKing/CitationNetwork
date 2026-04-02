@@ -112,11 +112,14 @@ def parse_paragraphs(filepath):
     result = []
     for node in root.iter():
         if node.tag == "NP.ECR":
+            identifier = node.get("IDENTIFIER", "").strip()
             no_p = node.findtext("NO.P", "").strip()
             txt_el = node.find("TXT")
             raw = "".join((txt_el if txt_el is not None else node).itertext())
             text = " ".join(raw.split())
-            if no_p:
+            if identifier:
+                result.append({"celex": celex, "paragraph": identifier, "paragraph_text": text})
+            if no_p and no_p != identifier:
                 result.append({"celex": celex, "paragraph": no_p, "paragraph_text": text})
         elif node.tag == "NP":
             no_p = node.findtext("NO.P", "").strip()
@@ -298,6 +301,23 @@ def save_to_rdf(folder, output="citations.ttl"):
     # Parse citations first so we know which judgments actually appear
     rows = parse_files(folder)
 
+    # Build ECLI -> CELEX lookup for cases where only ECLI is present on a citation.
+    db = _load_db()
+    ecli_to_celex = {
+        row["ECLI"]: row["CELEX"]
+        for _, row in db.iterrows()
+        if row["ECLI"] and row["CELEX"]
+    }
+
+    # Mirror save_to_db paragraph extraction so paragraph nodes can carry text.
+    paragraph_text_by_key = {}
+    for filename in sorted(os.listdir(folder)):
+        if not filename.endswith(".xml"):
+            continue
+        para_rows = parse_paragraphs(os.path.join(folder, filename))
+        for pr in para_rows:
+            paragraph_text_by_key[(pr["celex"], pr["paragraph"])] = pr["paragraph_text"]
+
     # Collect only the judgment URIs that are referenced in the citation network
     used_uris = set()
     for row in rows:
@@ -309,8 +329,7 @@ def save_to_rdf(folder, output="citations.ttl"):
             used_uris.add(str(cit_j))
 
     # Emit metadata only for judgments that appear in the citation network
-    df = _load_db()
-    for _, row in df.iterrows():
+    for _, row in db.iterrows():
         j_uri = _judgment_uri(ecli=row["ECLI"] or None, celex=row["CELEX"] or None)
         if j_uri is None or str(j_uri) not in used_uris:
             continue
@@ -339,6 +358,9 @@ def save_to_rdf(folder, output="citations.ttl"):
             g.add((src_p, RDF.type, CIT.Paragraph))
             g.add((src_p, CIT.ofJudgment, src_j))
             g.add((src_p, CIT.paragraphNumber, Literal(src_para_no)))
+            src_para_text = paragraph_text_by_key.get((row["source_celex"], src_para_no))
+            if src_para_text:
+                g.add((src_p, CIT.text, Literal(src_para_text)))
         else:
             src_p = src_j
 
@@ -353,10 +375,15 @@ def save_to_rdf(folder, output="citations.ttl"):
             g.add((cit_node, CIT.citedJudgment, cit_j))
             if row["cited_paragraphs"]:
                 for para_no in row["cited_paragraphs"]:
-                    cited_p = URIRef(f"{cit_j}#{para_no.strip()}")
+                    clean_para_no = para_no.strip()
+                    cited_p = URIRef(f"{cit_j}#{clean_para_no}")
                     g.add((cited_p, RDF.type, CIT.Paragraph))
                     g.add((cited_p, CIT.ofJudgment, cit_j))
-                    g.add((cited_p, CIT.paragraphNumber, Literal(para_no.strip())))
+                    g.add((cited_p, CIT.paragraphNumber, Literal(clean_para_no)))
+                    cited_celex_for_text = row["cited_celex"] or ecli_to_celex.get(row["cited_ecli"], "")
+                    cited_para_text = paragraph_text_by_key.get((cited_celex_for_text, clean_para_no))
+                    if cited_para_text:
+                        g.add((cited_p, CIT.text, Literal(cited_para_text)))
                     g.add((cit_node, CIT.citesParagraph, cited_p))
             else:
                 g.add((cit_node, CIT.citesJudgment, cit_j))
