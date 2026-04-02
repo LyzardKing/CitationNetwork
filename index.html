@@ -439,8 +439,9 @@ LIMIT 200`,
               a.href = term.value;
               a.target = "_blank";
               a.rel = "noopener noreferrer";
-              // shorten: keep everything after last / or #
-              a.textContent = term.value.replace(/^.*[/#]/, "");
+              // shorten: prefer ?uri= param value, strip leading ecli:/CELEX: scheme, else last path/fragment segment
+              const uriParam = (() => { try { return new URL(term.value).searchParams.get("uri"); } catch { return null; } })();
+              a.textContent = (uriParam ?? term.value.replace(/^.*[/#]/, "")).replace(/^(?:ecli:|CELEX:)/i, "");
               a.title = term.value;
               td.appendChild(a);
             } else {
