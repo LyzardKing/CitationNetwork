@@ -17,7 +17,7 @@
         "most_citing_paragraphs": {
           "title": "Most-citing source paragraphs",
           "description": "Which paragraphs in the source judgments contain the most outgoing citations",
-          "sql": "SELECT source_celex,\n       source_no_case,\n       source_paragraph,\n       COUNT(*) AS outgoing_citations\nFROM   citations\nWHERE  source_paragraph IS NOT NULL\nGROUP  BY source_celex, source_paragraph\nORDER  BY outgoing_citations DESC\nLIMIT  50"
+          "sql": "SELECT c.source_celex,\n       c.source_no_case,\n       c.source_paragraph,\n       p.paragraph_text,\n       COUNT(*) AS outgoing_citations\nFROM   citations c\nLEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph\nWHERE  c.source_paragraph IS NOT NULL\nGROUP  BY c.source_celex, c.source_paragraph\nORDER  BY outgoing_citations DESC\nLIMIT  50"
         },
         "citation_counts_by_source": {
           "title": "Citation counts by source case",
@@ -27,7 +27,7 @@
         "paragraph_citation_detail": {
           "title": "Paragraph citation detail",
           "description": "Full list: source paragraph → cited case + paragraph (most frequent first)",
-          "sql": "SELECT c.source_celex,\n       c.source_no_case,\n       c.source_paragraph,\n       c.cited_celex,\n       c.cited_no_case,\n       cp.paragraph        AS cited_paragraph,\n       COUNT(*)            AS occurrences\nFROM   citation_paragraphs cp\nJOIN   citations c ON cp.citation_id = c.id\nGROUP  BY c.source_celex, c.source_paragraph, c.cited_celex, cp.paragraph\nORDER  BY occurrences DESC, c.source_celex, cp.paragraph\nLIMIT  200"
+          "sql": "SELECT c.source_celex,\n       c.source_no_case,\n       c.source_paragraph,\n       p.paragraph_text   AS source_paragraph_text,\n       c.cited_celex,\n       c.cited_no_case,\n       cp.paragraph        AS cited_paragraph,\n       COUNT(*)            AS occurrences\nFROM   citation_paragraphs cp\nJOIN   citations c ON cp.citation_id = c.id\nLEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph\nGROUP  BY c.source_celex, c.source_paragraph, c.cited_celex, cp.paragraph\nORDER  BY occurrences DESC, c.source_celex, cp.paragraph\nLIMIT  200"
         }
       }
     }

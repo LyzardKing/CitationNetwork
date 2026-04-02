@@ -51,13 +51,6 @@ def parse_citations(filepath):
                 para_node = node
                 break
 
-        if para_node is not None:
-            txt_el = para_node.find("TXT")
-            raw = "".join((txt_el if txt_el is not None else para_node).itertext())
-            source_paragraph_text = " ".join(raw.split())
-        else:
-            source_paragraph_text = ""
-
         # NO.CASE and ECLI can appear as child elements or as attributes on the element itself
         cited_no_case = (citation.findtext("NO.CASE")
                          or citation.get("NO.CASE", ""))
@@ -100,7 +93,6 @@ def parse_citations(filepath):
             "source_ecli": source_ids["ecli"],
             "source_no_case": source_ids["no_case"],
             "source_paragraph": source_paragraph,
-            "source_paragraph_text": source_paragraph_text,
             "cited_celex": cited_ids["celex"],
             "cited_ecli": cited_ids["ecli"] or cited_ecli,
             "cited_no_case": cited_no_case,
@@ -109,6 +101,30 @@ def parse_citations(filepath):
 
     print(f"Parsed {len(result)} citations from {filepath}")
     print(result)
+    return result
+
+
+def parse_paragraphs(filepath):
+    """Extract all paragraphs (celex, paragraph_no, paragraph_text) from a Formex XML file."""
+    celex = os.path.splitext(os.path.basename(filepath))[0]
+    tree = ET.parse(filepath)
+    root = tree.getroot()
+    result = []
+    for node in root.iter():
+        if node.tag == "NP.ECR":
+            no_p = node.findtext("NO.P", "").strip()
+            txt_el = node.find("TXT")
+            raw = "".join((txt_el if txt_el is not None else node).itertext())
+            text = " ".join(raw.split())
+            if no_p:
+                result.append({"celex": celex, "paragraph": no_p, "paragraph_text": text})
+        elif node.tag == "NP":
+            no_p = node.findtext("NO.P", "").strip()
+            if no_p:
+                txt_el = node.find("TXT")
+                raw = "".join((txt_el if txt_el is not None else node).itertext())
+                text = " ".join(raw.split())
+                result.append({"celex": celex, "paragraph": no_p, "paragraph_text": text})
     return result
 
 
@@ -129,6 +145,7 @@ def reset_db(db_path="citations.db"):
     con.executescript("""
         DROP TABLE IF EXISTS citation_paragraphs;
         DROP TABLE IF EXISTS citations;
+        DROP TABLE IF EXISTS paragraphs;
         DROP TABLE IF EXISTS cases;
     """)
     con.commit()
@@ -145,7 +162,6 @@ def save_to_db(folder, db_path="citations.db"):
             source_ecli           TEXT,
             source_no_case        TEXT,
             source_paragraph      TEXT,
-            source_paragraph_text TEXT,
             cited_celex           TEXT,
             cited_ecli            TEXT,
             cited_no_case         TEXT,
@@ -161,6 +177,12 @@ def save_to_db(folder, db_path="citations.db"):
             no_case  TEXT,
             title    TEXT
         );
+        CREATE TABLE IF NOT EXISTS paragraphs (
+            celex          TEXT NOT NULL,
+            paragraph      TEXT NOT NULL,
+            paragraph_text TEXT,
+            PRIMARY KEY (celex, paragraph)
+        );
         CREATE INDEX IF NOT EXISTS idx_cit_source ON citations(source_celex);
         CREATE INDEX IF NOT EXISTS idx_cit_cited  ON citations(cited_celex);
         CREATE INDEX IF NOT EXISTS idx_cp_citation ON citation_paragraphs(citation_id);
@@ -171,13 +193,12 @@ def save_to_db(folder, db_path="citations.db"):
     for row in rows:
         cur.execute(
             "INSERT INTO citations "
-            "(source_celex, source_ecli, source_no_case, source_paragraph, source_paragraph_text, cited_celex, cited_ecli, cited_no_case, cited_paragraphs) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(source_celex, source_ecli, source_no_case, source_paragraph, cited_celex, cited_ecli, cited_no_case, cited_paragraphs) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (row["source_celex"],
              row["source_ecli"] or None,
              row["source_no_case"] or None,
              row["source_paragraph"] or None,
-             row["source_paragraph_text"] or None,
              row["cited_celex"] or None,
              row["cited_ecli"] or None,
              row["cited_no_case"] or None,
@@ -188,6 +209,17 @@ def save_to_db(folder, db_path="citations.db"):
             cur.execute(
                 "INSERT INTO citation_paragraphs (citation_id, paragraph) VALUES (?, ?)",
                 (cit_id, para),
+            )
+
+    # populate paragraphs table from all source XML files
+    for filename in sorted(os.listdir(folder)):
+        if not filename.endswith(".xml"):
+            continue
+        para_rows = parse_paragraphs(os.path.join(folder, filename))
+        for pr in para_rows:
+            cur.execute(
+                "INSERT OR IGNORE INTO paragraphs (celex, paragraph, paragraph_text) VALUES (?, ?, ?)",
+                (pr["celex"], pr["paragraph"], pr["paragraph_text"]),
             )
 
     # populate cases table from the cases.csv file for easier lookup
