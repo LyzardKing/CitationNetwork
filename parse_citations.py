@@ -271,15 +271,15 @@ def get_identifiers(identifier, known=None):
 
 _ELI  = "http://data.europa.eu/eli/ontology#"
 _CIT  = "https://example.org/cjeu/citation#"
-_BASE = "https://e.cjeu.europa.eu/judgment/"
+_BASE = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri="
 
 
 def _judgment_uri(ecli=None, celex=None):
     from rdflib import URIRef
     if ecli:
-        return URIRef(f"{_BASE}{ecli}")
+        return URIRef(f"{_BASE}ecli:{ecli}")
     if celex:
-        return URIRef(f"{_BASE}{celex}")
+        return URIRef(f"{_BASE}CELEX:{celex}")
     return None
 
 
