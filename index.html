@@ -214,6 +214,15 @@
       text-decoration: underline;
     }
 
+    .id-link {
+      color: var(--accent) !important;
+      cursor: pointer;
+    }
+
+    .id-link:hover {
+      text-decoration: underline;
+    }
+
     .num {
       text-align: right;
       font-variant-numeric: tabular-nums;
@@ -279,6 +288,20 @@ ORDER BY DESC(?times_cited)
 LIMIT 50`,
       },
       {
+        title: "Most-cited cases (distinct sources)",
+        sparql: PFX +
+          `SELECT ?cited ?title (COUNT(DISTINCT ?src) AS ?citing_cases)
+WHERE {
+  ?cit a cit:Citation ;
+       cit:sourceJudgment ?src ;
+       cit:citedJudgment ?cited .
+  OPTIONAL { ?cited dcterms:title ?title }
+}
+GROUP BY ?cited ?title
+ORDER BY DESC(?citing_cases)
+LIMIT 50`,
+      },
+      {
         title: "Most-cited cases",
         sparql: PFX +
           `SELECT ?cited ?title
@@ -334,6 +357,54 @@ LIMIT 200`,
       },
     ];
 
+    /* ── Filter-query builder ── */
+    function isEcliUri(uri) {
+      try {
+        const p = new URL(uri).searchParams.get("uri");
+        return p && /^(?:ecli:|CELEX:)/i.test(p);
+      } catch { return false; }
+    }
+
+    function buildFilterQuery(uri) {
+      const url = new URL(uri);
+      const isPara = url.hash !== "";
+      const u = `<${uri}>`;
+
+      if (isPara) {
+        return PFX +
+          `SELECT ?src ?cited ?srcPara ?citedPara
+WHERE {
+  { ?cit cit:sourceParagraph ${u} . BIND(${u} AS ?sp) }
+  UNION
+  { ?cit cit:citesParagraph ${u} . BIND(${u} AS ?tp) }
+  OPTIONAL { ?cit cit:sourceJudgment ?src }
+  OPTIONAL { ?cit cit:citedJudgment ?cited }
+  OPTIONAL { ?sp cit:paragraphNumber ?srcPara }
+  OPTIONAL { ?tp cit:paragraphNumber ?citedPara }
+}
+ORDER BY ?src ?cited`;
+      } else {
+        // Optimized: Use UNION and BIND instead of FILTER
+        return PFX +
+          `SELECT ?src ?srcPara ?cited ?citedPara (COUNT(?cit) AS ?occurrences)
+WHERE {
+  { 
+    ?cit cit:sourceJudgment ${u} ; cit:citedJudgment ?cited .
+    BIND(${u} AS ?src)
+  }
+  UNION
+  { 
+    ?cit cit:citedJudgment ${u} ; cit:sourceJudgment ?src .
+    BIND(${u} AS ?cited)
+  }
+  OPTIONAL { ?cit cit:sourceParagraph ?sp . ?sp cit:paragraphNumber ?srcPara }
+  OPTIONAL { ?cit cit:citesParagraph ?tp . ?tp cit:paragraphNumber ?citedPara }
+}
+GROUP BY ?src ?srcPara ?cited ?citedPara
+ORDER BY DESC(?occurrences)`;
+      }
+    }
+
     /* ── Build sidebar ── */
     const queriesEl = document.getElementById("queries");
     const editor = document.getElementById("sparql-input");
@@ -381,7 +452,44 @@ LIMIT 200`,
       }
     })();
 
+    /* ── Row renderer ── */
+    function appendRow(tbody, b, vars, numVars) {
+      const row = tbody.insertRow();
+      vars.forEach(v => {
+        const td = row.insertCell();
+        const term = b.get(v);
+        if (!term) return;
+        if (term.termType === "NamedNode") {
+          td.className = "uri";
+          const a = document.createElement("a");
+          const uriParam = (() => { try { return new URL(term.value).searchParams.get("uri"); } catch { return null; } })();
+          a.textContent = (uriParam ?? term.value.replace(/^.*[/#]/, "")).replace(/^(?:ecli:|CELEX:)/i, "");
+          a.title = term.value;
+          if (isEcliUri(term.value)) {
+            a.href = "#";
+            a.className = "id-link";
+            a.addEventListener("click", (e) => {
+              e.preventDefault();
+              editor.value = buildFilterQuery(term.value);
+              queriesEl.querySelectorAll(".query-btn").forEach(b => b.classList.remove("active"));
+              runQuery();
+            });
+          } else {
+            a.href = term.value;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+          }
+          td.appendChild(a);
+        } else {
+          if (numVars.has(v)) td.className = "num";
+          td.textContent = term.value;
+        }
+      });
+    }
+
     /* ── Run query ── */
+    let currentQueryId = 0;
+
     runBtn.addEventListener("click", runQuery);
     editor.addEventListener("keydown", e => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runQuery();
@@ -392,73 +500,77 @@ LIMIT 200`,
       const sparql = editor.value.trim();
       if (!sparql) return;
 
+      const queryId = ++currentQueryId;
+
       runBtn.disabled = true;
       loadingBar.style.display = "block";
       statusEl.textContent = "Querying…";
       resultsEl.innerHTML = "";
 
       try {
-        const bindingsStream = await engine.queryBindings(sparql, {
-          sources: [rdfStore],
-        });
-        const bindings = await bindingsStream.toArray();
+        const bindingsStream = await engine.queryBindings(sparql, { sources: [rdfStore] });
+        if (queryId !== currentQueryId) { bindingsStream.destroy?.(); return; }
 
-        if (bindings.length === 0) {
-          resultsEl.innerHTML = '<p id="no-results">No results.</p>';
-          statusEl.textContent = "0 results.";
-          return;
+        let table = null, tbody = null, vars = null;
+        const numVars = new Set();
+        let count = 0;
+        const CHUNK = 50;
+        let pending = [];
+
+        const flush = () => {
+          for (const b of pending) appendRow(tbody, b, vars, numVars);
+          pending = [];
+        };
+
+        for await (const b of bindingsStream) {
+          if (queryId !== currentQueryId) { bindingsStream.destroy?.(); return; }
+
+          if (!vars) {
+            vars = [...b.keys()].map(k => k.value);
+            table = document.createElement("table");
+            const thead = table.createTHead();
+            const hrow = thead.insertRow();
+            vars.forEach(v => {
+              const th = document.createElement("th");
+              th.textContent = v;
+              hrow.appendChild(th);
+            });
+            tbody = table.createTBody();
+            resultsEl.appendChild(table);
+          }
+
+          vars.forEach(v => {
+            const t = b.get(v);
+            if (t && t.termType === "Literal" && !isNaN(t.value)) numVars.add(v);
+          });
+
+          count++;
+          pending.push(b);
+          if (pending.length >= CHUNK) {
+            flush();
+            statusEl.textContent = `${count} result(s)…`;
+            await new Promise(r => setTimeout(r, 0));
+          }
         }
 
-        const vars = [...bindings[0].keys()].map(k => k.value);
-        const numVars = new Set(
-          vars.filter(v => bindings.some(b => {
-            const t = b.get(v);
-            return t && t.termType === "Literal" && !isNaN(t.value);
-          }))
-        );
+        if (queryId !== currentQueryId) return;
+        flush();
 
-        const table = document.createElement("table");
-        const thead = table.createTHead();
-        const hrow = thead.insertRow();
-        vars.forEach(v => {
-          const th = document.createElement("th");
-          th.textContent = v;
-          hrow.appendChild(th);
-        });
-
-        const tbody = table.createTBody();
-        bindings.forEach(b => {
-          const row = tbody.insertRow();
-          vars.forEach(v => {
-            const td = row.insertCell();
-            const term = b.get(v);
-            if (!term) return;
-            if (term.termType === "NamedNode") {
-              td.className = "uri";
-              const a = document.createElement("a");
-              a.href = term.value;
-              a.target = "_blank";
-              a.rel = "noopener noreferrer";
-              // shorten: prefer ?uri= param value, strip leading ecli:/CELEX: scheme, else last path/fragment segment
-              const uriParam = (() => { try { return new URL(term.value).searchParams.get("uri"); } catch { return null; } })();
-              a.textContent = (uriParam ?? term.value.replace(/^.*[/#]/, "")).replace(/^(?:ecli:|CELEX:)/i, "");
-              a.title = term.value;
-              td.appendChild(a);
-            } else {
-              if (numVars.has(v)) td.className = "num";
-              td.textContent = term.value;
-            }
-          });
-        });
-
-        resultsEl.appendChild(table);
-        statusEl.textContent = `${bindings.length} result(s).`;
+        if (count === 0) {
+          resultsEl.innerHTML = '<p id="no-results">No results.</p>';
+          statusEl.textContent = "0 results.";
+        } else {
+          statusEl.textContent = `${count} result(s).`;
+        }
       } catch (e) {
+        if (queryId !== currentQueryId) return;
         resultsEl.innerHTML = `<p class="err">Error: ${e.message}</p>`;
         statusEl.textContent = "Query failed.";
       } finally {
-        runBtn.disabled = false;
-        loadingBar.style.display = "none";
+        if (queryId === currentQueryId) {
+          runBtn.disabled = false;
+          loadingBar.style.display = "none";
+        }
       }
     }
   </script>
