@@ -7,6 +7,8 @@
   <title>CJEU Privacy Citation Network</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="styles.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="sparnatural-form/sparnatural-form.css">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 
@@ -42,10 +44,25 @@
         <div id="editor-area" class="card border-0 border-bottom rounded-0 shadow-none">
           <div class="card-body px-3 py-2">
             <div class="d-flex align-items-start justify-content-between gap-2">
-              <label class="d-block text-secondary fw-bold text-uppercase mb-0" style="font-size: 0.7rem; letter-spacing: 0.06em;" for="sparql-input">SPARQL <span class="fw-normal">&mdash; Ctrl+Enter to run</span></label>
-              <button id="toggle-editor-btn" type="button" class="btn btn-sm btn-outline-secondary">Minimize</button>
+              <div class="d-flex gap-2 flex-shrink-0">
+                <button id="form-toggle-btn" class="btn btn-outline-secondary btn-sm">Form</button>
+                <button id="toggle-editor-btn" type="button" class="btn btn-sm btn-outline-secondary">SPARQL Editor</button>
+              </div>
+            </div>
+            <div id="form-area" style="display:none;">
+              <sparnatural-form
+                id="sparnatural-form-widget"
+                src="sparnatural-form/cit-config.ttl"
+                form="sparnatural-form/form.json"
+                query="sparnatural-form/query.json"
+                endpoint="./sparql"
+                lang="en"
+                defaultLang="en"
+                limit="1000"
+              ></sparnatural-form>
             </div>
             <div id="editor-body" class="mt-2">
+              <label class="d-block text-secondary fw-bold text-uppercase mb-0" style="font-size: 0.7rem; letter-spacing: 0.06em;" for="sparql-input">SPARQL <span class="fw-normal">&mdash; Ctrl+Enter to run</span></label>
               <textarea id="sparql-input" class="form-control font-monospace" rows="7" spellcheck="false"></textarea>
               <div class="mt-2">
                 <button id="run-btn" class="btn btn-primary btn-sm" disabled>Run</button>
@@ -57,6 +74,10 @@
             </div>
             <div id="toolbar" class="d-flex align-items-center mt-3 gap-3">
               <button id="info-btn" class="btn btn-outline-secondary btn-sm" disabled>Info</button>
+              <div id="show-title-wrap" class="form-check form-switch mb-0 d-none">
+                <input class="form-check-input" type="checkbox" id="show-title-toggle">
+                <label class="form-check-label small" for="show-title-toggle">Show title</label>
+              </div>
               <div id="show-text-wrap" class="form-check form-switch mb-0">
                 <input class="form-check-input" type="checkbox" id="show-text-toggle">
                 <label class="form-check-label small" for="show-text-toggle">Show text</label>
@@ -121,6 +142,7 @@
     </div>
   </div>
 
+  <script src="sparnatural-form/sparnatural-form.js"></script>
   <script type="module">
     "use strict";
 
@@ -325,6 +347,8 @@ ORDER BY DESC(?occurrences)`;
     const infoBtn = document.getElementById("info-btn");
     const showTextWrap = document.getElementById("show-text-wrap");
     const showTextToggle = document.getElementById("show-text-toggle");
+    const showTitleWrap = document.getElementById("show-title-wrap");
+    const showTitleToggle = document.getElementById("show-title-toggle");
     const statusEl = document.getElementById("status");
     const resultsEl = document.getElementById("results-area");
     const loadingBar = document.getElementById("loading-bar");
@@ -347,14 +371,32 @@ ORDER BY DESC(?occurrences)`;
       return /text/i.test(varName);
     }
 
+    function isTitleVar(varName) {
+      return /^TitleText_/i.test(varName);
+    }
+
     function updateTextToggleVisibility() {
       const vars = extractSelectVars(editor.value);
-      const hasText = vars.some(isTextVar);
-      const wasHidden = showTextWrap.classList.contains("d-none");
-      showTextWrap.classList.toggle("d-none", !hasText);
-      if (!hasText) {
+
+      // Title toggle: visible when there are TitleText_ vars in the query
+      const hasTitles = vars.some(isTitleVar);
+      const titleWasHidden = showTitleWrap.classList.contains("d-none");
+      showTitleWrap.classList.toggle("d-none", !hasTitles);
+      if (!hasTitles) {
+        showTitleToggle.checked = false;
+      } else if (titleWasHidden) {
+        showTitleToggle.checked = false;
+      }
+
+      // Text toggle: always visible; disabled when no paragraph or text vars in query
+      const hasText = vars.some(v => isTextVar(v) && !isTitleVar(v));
+      const hasPara = vars.some(isParagraphVar);
+      const wasDisabled = showTextToggle.disabled;
+      showTextWrap.classList.remove("d-none");
+      showTextToggle.disabled = !hasPara && !hasText;
+      if (showTextToggle.disabled) {
         showTextToggle.checked = false;
-      } else if (wasHidden) {
+      } else if (wasDisabled) {
         showTextToggle.checked = window.matchMedia("(min-width: 992px)").matches;
       }
     }
@@ -473,7 +515,7 @@ ORDER BY DESC(?count)`).map(r => ({
 
     function setEditorCollapsed(collapsed) {
       editorBody.classList.toggle("d-none", collapsed);
-      toggleEditorBtn.textContent = collapsed ? "Show editor" : "Minimize";
+      // toggleEditorBtn.textContent = collapsed ? "SPARQL Editor" : "Minimize";
       toggleEditorBtn.setAttribute("aria-expanded", String(!collapsed));
       try {
         localStorage.setItem(EDITOR_COLLAPSED_KEY, collapsed ? "1" : "0");
@@ -495,6 +537,7 @@ ORDER BY DESC(?count)`).map(r => ({
 
     // Default: show text on desktop (Bootstrap lg and up), hide on mobile.
     showTextToggle.checked = window.matchMedia("(min-width: 992px)").matches;
+    showTitleToggle.checked = false;
     updateTextToggleVisibility();
 
     SAVED_QUERIES.forEach((q) => {
@@ -633,6 +676,44 @@ ORDER BY DESC(?count)`).map(r => ({
     let currentQueryId = 0;
 
     runBtn.addEventListener("click", runQuery);
+    /* ── Sparnatural-form integration ── */
+    const sfWidget = document.getElementById("sparnatural-form-widget");
+    const formArea = document.getElementById("form-area");
+    const formToggleBtn = document.getElementById("form-toggle-btn");
+    let lastFormSparql = null;
+
+    formToggleBtn.addEventListener("click", () => {
+      const hidden = formArea.style.display === "none";
+      formArea.style.display = hidden ? "block" : "none";
+      // formToggleBtn.textContent = hidden ? "Hide form" : "Form";
+      formToggleBtn.classList.toggle("btn-secondary", hidden);
+      formToggleBtn.classList.toggle("btn-outline-secondary", !hidden);
+    });
+
+    sfWidget.addEventListener("queryUpdated", (e) => {
+      const sparql = (typeof sfWidget.expandSparql === "function")
+        ? sfWidget.expandSparql(e.detail.queryString)
+        : e.detail.queryString;
+      lastFormSparql = sparql;
+      editor.value = sparql;
+      updateSortControls();
+      clearActive();
+    });
+
+    sfWidget.addEventListener("submit", async () => {
+      sfWidget.disablePlayBtn();
+      if (lastFormSparql) {
+        editor.value = lastFormSparql;
+        updateSortControls();
+        clearActive();
+      }
+      try {
+        await runQuery();
+      } finally {
+        sfWidget.enablePlayBtn();
+      }
+    });
+
     infoBtn.addEventListener("click", () => {
       if (!rdfStore || !infoModal) return;
       if (!schemaCache) schemaCache = buildSchemaInfo();
@@ -640,6 +721,9 @@ ORDER BY DESC(?count)`).map(r => ({
       infoModal.show();
     });
     showTextToggle.addEventListener("change", () => {
+      if (rdfStore) runQuery();
+    });
+    showTitleToggle.addEventListener("change", () => {
       if (rdfStore) runQuery();
     });
     editor.addEventListener("keydown", e => {
@@ -700,7 +784,9 @@ ORDER BY DESC(?count)`).map(r => ({
           paraByBase.set("src", "paragraph");
         }
         const pairedParaVars = new Set(paraByBase.values());
-        const visibleVars = vars.filter(v => !pairedParaVars.has(v) && (showTextToggle.checked || !isTextVar(v)));
+        const visibleVars = vars.filter(v => !pairedParaVars.has(v)
+          && (showTitleToggle.checked || !isTitleVar(v))
+          && (showTextToggle.checked || !isTextVar(v) || isTitleVar(v)));
         const displayVars = visibleVars.length > 0 ? visibleVars : vars.filter(v => !pairedParaVars.has(v));
         const numVars = new Set();
         let count = bindings.length;

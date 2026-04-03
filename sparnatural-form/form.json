@@ -1,0 +1,46 @@
+{
+  "bindings": [
+    {
+      "variable": "TitleText_3",
+      "node": {
+        "type": "UserPrompt",
+        "name": { "en": "Source judgment — title contains (e.g. \"Schrems\", \"Digital Rights\", \"Google Spain\")" }
+      }
+    },
+    {
+      "variable": "IdentifierText_6",
+      "node": {
+        "type": "UserPrompt",
+        "name": { "en": "Source judgment — ECLI (e.g. ECLI:EU:C:2010:378)" }
+      }
+    },
+    {
+      "variable": "Judgment_2Para",
+      "node": {
+        "type": "UserPrompt",
+        "name": { "en": "Citing paragraph number" }
+      }
+    },
+    {
+      "variable": "TitleText_5",
+      "node": {
+        "type": "UserPrompt",
+        "name": { "en": "Cited judgment — title contains (e.g. \"Lindqvist\", \"Haar Petroleum\", \"Bodil Lindqvist\")" }
+      }
+    },
+    {
+      "variable": "IdentifierText_7",
+      "node": {
+        "type": "UserPrompt",
+        "name": { "en": "Cited judgment — ECLI (e.g. ECLI:EU:C:2000:177)" }
+      }
+    },
+    {
+      "variable": "Judgment_4Para",
+      "node": {
+        "type": "UserPrompt",
+        "name": { "en": "Cited paragraph number" }
+      }
+    }
+  ]
+}

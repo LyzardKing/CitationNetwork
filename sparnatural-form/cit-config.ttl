@@ -1,0 +1,137 @@
+@prefix sh:          <http://www.w3.org/ns/shacl#> .
+@prefix rdfs:        <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:         <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:         <http://www.w3.org/2002/07/owl#> .
+@prefix dcterms:     <http://purl.org/dc/terms/> .
+@prefix cit:         <https://example.org/cjeu/citation#> .
+@prefix core:        <http://data.sparna.fr/ontologies/sparnatural-config-core#> .
+@prefix datasources: <http://data.sparna.fr/ontologies/sparnatural-config-datasources#> .
+@prefix volipi:      <http://data.sparna.fr/ontologies/volipi#> .
+@prefix dash:        <http://datashapes.org/dash#> .
+@prefix this:        <https://example.org/cjeu/sparnatural-config/> .
+
+<https://example.org/cjeu/sparnatural-config> a owl:Ontology .
+
+# ── Node Shapes (Classes) ──────────────────────────────────────────────────────
+
+this:Citation a sh:NodeShape ;
+  sh:order "1"^^xsd:integer ;
+  volipi:iconName "fa-solid fa-gavel" ;
+  sh:targetClass cit:Citation ;
+  sh:nodeKind sh:IRI ;
+  rdfs:label "Citation"@en ;
+  sh:description "A citation from one judgment paragraph to another"@en ;
+  sh:property
+    this:Citation_sourceJudgment,
+    this:Citation_citedJudgment,
+    this:Citation_sourceParagraph,
+    this:Citation_citesParagraph .
+
+# Judgment URIs are not explicitly typed in the data, so no sh:targetClass.
+# Sparnatural will not add an rdf:type filter for this shape.
+# Judgment URIs are not explicitly typed; sh:property intentionally omitted so Sparnatural
+# does not auto-add a ?Judgment_X_label column. The title property is still accessible via
+# the property shape URI referenced in query.json.
+this:Judgment a sh:NodeShape ;
+  sh:order "2"^^xsd:integer ;
+  volipi:iconName "fa-solid fa-scale-balanced" ;
+  sh:nodeKind sh:IRI ;
+  rdfs:label "Judgment"@en ;
+  sh:description "A CJEU judgment"@en .
+
+# Paragraph URIs are also not explicitly typed in the data.
+this:Paragraph a sh:NodeShape ;
+  sh:order "3"^^xsd:integer ;
+  volipi:iconName "fa-solid fa-paragraph" ;
+  sh:nodeKind sh:IRI ;
+  rdfs:label "Paragraph"@en ;
+  sh:description "A paragraph within a judgment"@en ;
+  sh:property
+    this:Paragraph_number,
+    this:Paragraph_text .
+
+# Literal range shape for judgment titles (rdf:langString values).
+this:TitleText a sh:NodeShape ;
+  sh:order "4"^^xsd:integer ;
+  volipi:iconName "fa-solid fa-font" ;
+  sh:nodeKind sh:Literal ;
+  rdfs:label "Title"@en .
+
+# Literal range shape for ECLI identifiers.
+this:IdentifierText a sh:NodeShape ;
+  sh:order "4"^^xsd:integer ;
+  volipi:iconName "fa-solid fa-fingerprint" ;
+  sh:nodeKind sh:Literal ;
+  rdfs:label "Identifier"@en .
+
+# Literal range shape for paragraph text.
+this:ParaText a sh:NodeShape ;
+  sh:order "6"^^xsd:integer ;
+  volipi:iconName "fa-solid fa-align-left" ;
+  sh:nodeKind sh:Literal ;
+  rdfs:label "Text"@en .
+
+# Literal range shape for paragraph numbers.
+this:ParaNumber a sh:NodeShape ;
+  sh:order "7"^^xsd:integer ;
+  volipi:iconName "fa-solid fa-hashtag" ;
+  sh:nodeKind sh:Literal ;
+  rdfs:label "Paragraph number"@en .
+
+# ── Property Shapes ────────────────────────────────────────────────────────────
+
+this:Citation_sourceJudgment sh:path cit:sourceJudgment ;
+  sh:name "source judgment"@en ;
+  sh:nodeKind sh:IRI ;
+  sh:node this:Judgment ;
+  dash:searchWidget core:NonSelectableProperty ;
+  core:enableOptional "true"^^xsd:boolean .
+
+this:Citation_citedJudgment sh:path cit:citedJudgment ;
+  sh:name "cited judgment"@en ;
+  sh:nodeKind sh:IRI ;
+  sh:node this:Judgment ;
+  dash:searchWidget core:NonSelectableProperty ;
+  core:enableOptional "true"^^xsd:boolean .
+
+this:Citation_sourceParagraph sh:path cit:sourceParagraph ;
+  sh:name "source paragraph"@en ;
+  sh:nodeKind sh:IRI ;
+  sh:node this:Paragraph ;
+  dash:searchWidget core:NonSelectableProperty ;
+  core:enableOptional "true"^^xsd:boolean .
+
+this:Citation_citesParagraph sh:path cit:citesParagraph ;
+  sh:name "cites paragraph"@en ;
+  sh:nodeKind sh:IRI ;
+  sh:node this:Paragraph ;
+  dash:searchWidget core:NonSelectableProperty ;
+  core:enableOptional "true"^^xsd:boolean .
+
+this:Judgment_identifier sh:path dcterms:identifier ;
+  sh:name "ECLI identifier"@en ;
+  sh:nodeKind sh:Literal ;
+  sh:node this:IdentifierText ;
+  dash:searchWidget core:SearchProperty ;
+  core:enableOptional "true"^^xsd:boolean .
+
+this:Judgment_title sh:path dcterms:title ;
+  sh:name "title"@en ;
+  sh:nodeKind sh:Literal ;
+  sh:node this:TitleText ;
+  dash:searchWidget core:SearchProperty ;
+  core:enableOptional "true"^^xsd:boolean .
+
+this:Paragraph_number sh:path cit:paragraphNumber ;
+  sh:name "paragraph number"@en ;
+  sh:nodeKind sh:Literal ;
+  sh:node this:ParaNumber ;
+  dash:searchWidget core:SearchProperty ;
+  core:enableOptional "true"^^xsd:boolean .
+
+this:Paragraph_text sh:path cit:text ;
+  sh:name "text contains"@en ;
+  sh:nodeKind sh:Literal ;
+  sh:node this:ParaText ;
+  dash:searchWidget core:SearchProperty ;
+  core:enableOptional "true"^^xsd:boolean .

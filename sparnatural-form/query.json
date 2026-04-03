@@ -1,0 +1,72 @@
+{
+  "distinct": true,
+  "variables": [
+    { "termType": "Variable", "value": "Judgment_2" },
+    { "termType": "Variable", "value": "TitleText_3" },
+    { "termType": "Variable", "value": "Judgment_2Para" },
+    { "termType": "Variable", "value": "srcText" },
+    { "termType": "Variable", "value": "Judgment_4" },
+    { "termType": "Variable", "value": "TitleText_5" },
+    { "termType": "Variable", "value": "Judgment_4Para" },
+    { "termType": "Variable", "value": "citedText" }
+  ],
+  "order": null,
+  "branches": [
+    {
+      "line": {
+        "s": "Citation_1",
+        "p": "https://example.org/cjeu/sparnatural-config/Citation_sourceJudgment",
+        "o": "Judgment_2",
+        "sType": "https://example.org/cjeu/sparnatural-config/Citation",
+        "oType": "https://example.org/cjeu/sparnatural-config/Judgment",
+        "values": []
+      },
+      "children": [
+        {"line":{"s":"Judgment_2","p":"https://example.org/cjeu/sparnatural-config/Judgment_title","o":"TitleText_3","sType":"https://example.org/cjeu/sparnatural-config/Judgment","oType":"https://example.org/cjeu/sparnatural-config/TitleText","values":[]},"children":[]},
+        {"line":{"s":"Judgment_2","p":"https://example.org/cjeu/sparnatural-config/Judgment_identifier","o":"IdentifierText_6","sType":"https://example.org/cjeu/sparnatural-config/Judgment","oType":"https://example.org/cjeu/sparnatural-config/IdentifierText","values":[]},"children":[]}
+      ]
+    },
+    {
+      "line": {
+        "s": "Citation_1",
+        "p": "https://example.org/cjeu/sparnatural-config/Citation_sourceParagraph",
+        "o": "Paragraph_8",
+        "sType": "https://example.org/cjeu/sparnatural-config/Citation",
+        "oType": "https://example.org/cjeu/sparnatural-config/Paragraph",
+        "values": []
+      },
+      "children": [
+        {"line":{"s":"Paragraph_8","p":"https://example.org/cjeu/sparnatural-config/Paragraph_number","o":"Judgment_2Para","sType":"https://example.org/cjeu/sparnatural-config/Paragraph","oType":"https://example.org/cjeu/sparnatural-config/ParaNumber","values":[]},"children":[]},
+        {"line":{"s":"Paragraph_8","p":"https://example.org/cjeu/sparnatural-config/Paragraph_text","o":"srcText","sType":"https://example.org/cjeu/sparnatural-config/Paragraph","oType":"https://example.org/cjeu/sparnatural-config/ParaText","values":[]},"children":[]}
+      ]
+    },
+    {
+      "line": {
+        "s": "Citation_1",
+        "p": "https://example.org/cjeu/sparnatural-config/Citation_citedJudgment",
+        "o": "Judgment_4",
+        "sType": "https://example.org/cjeu/sparnatural-config/Citation",
+        "oType": "https://example.org/cjeu/sparnatural-config/Judgment",
+        "values": []
+      },
+      "children": [
+        {"line":{"s":"Judgment_4","p":"https://example.org/cjeu/sparnatural-config/Judgment_title","o":"TitleText_5","sType":"https://example.org/cjeu/sparnatural-config/Judgment","oType":"https://example.org/cjeu/sparnatural-config/TitleText","values":[]},"children":[]},
+        {"line":{"s":"Judgment_4","p":"https://example.org/cjeu/sparnatural-config/Judgment_identifier","o":"IdentifierText_7","sType":"https://example.org/cjeu/sparnatural-config/Judgment","oType":"https://example.org/cjeu/sparnatural-config/IdentifierText","values":[]},"children":[]}
+      ]
+    },
+    {
+      "line": {
+        "s": "Citation_1",
+        "p": "https://example.org/cjeu/sparnatural-config/Citation_citesParagraph",
+        "o": "Paragraph_10",
+        "sType": "https://example.org/cjeu/sparnatural-config/Citation",
+        "oType": "https://example.org/cjeu/sparnatural-config/Paragraph",
+        "values": []
+      },
+      "children": [
+        {"line":{"s":"Paragraph_10","p":"https://example.org/cjeu/sparnatural-config/Paragraph_number","o":"Judgment_4Para","sType":"https://example.org/cjeu/sparnatural-config/Paragraph","oType":"https://example.org/cjeu/sparnatural-config/ParaNumber","values":[]},"children":[]},
+        {"line":{"s":"Paragraph_10","p":"https://example.org/cjeu/sparnatural-config/Paragraph_text","o":"citedText","sType":"https://example.org/cjeu/sparnatural-config/Paragraph","oType":"https://example.org/cjeu/sparnatural-config/ParaText","values":[]},"children":[]}
+      ]
+    }
+  ]
+}
