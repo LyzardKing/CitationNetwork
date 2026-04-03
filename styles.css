@@ -1,0 +1,82 @@
+html, body { height: 100%; }
+body { font-size: 14px; background: #f0f2f5; overflow: hidden; }
+
+.app-shell > .row > [class*="col-"] {
+  min-height: 0;
+}
+
+#sidebar {
+  --bs-offcanvas-bg: #1e3a5f;
+  --bs-offcanvas-width: 270px;
+  max-width: 270px;
+  background: #1e3a5f;
+  color: #fff;
+}
+
+#sidebar .card-header {
+  background: #152d4a;
+  border-bottom: 1px solid #2a4f7c;
+  padding: 0.85rem 1rem;
+  color: #fff;
+}
+
+#sidebar .card-header h1,
+#sidebar .card-header h1 span {
+  color: #fff;
+}
+
+#queries .list-group-item {
+  background: transparent;
+  color: #cce0f5;
+  border: 0;
+  border-left: 3px solid transparent;
+  padding: 0.55rem 1rem;
+}
+
+#queries .list-group-item:hover {
+  background: #254870;
+  color: #fff;
+}
+
+#queries .list-group-item.active {
+  background: #2a4f7c;
+  color: #fff;
+  border-left-color: #5ba3d9;
+}
+
+#mobile-header {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+#main { min-height: 0; }
+
+#sparql-input {
+  min-height: 130px;
+  line-height: 1.5;
+  font-size: 0.8rem;
+  overflow: auto;
+  resize: vertical;
+  background: #f8f9fc;
+  color: #1a1a2e;
+}
+
+#paragraph-modal-text {
+  white-space: pre-wrap;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.95rem;
+}
+
+.eurlex-logo {
+  display: inline-block;
+  padding: 0.07rem 0.45rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fff;
+  background: #003399;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+  border: 1px solid rgba(255,255,255,0.15);
+}

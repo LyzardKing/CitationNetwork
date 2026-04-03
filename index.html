@@ -5,306 +5,119 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CJEU Privacy Citation Network</title>
-  <style>
-    :root {
-      --bg-dark: #1e3a5f;
-      --bg-darker: #152d4a;
-      --bg-hover: #2a4f7c;
-      --accent: #5ba3d9;
-      --text-light: #cce0f5;
-    }
-
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: system-ui, sans-serif;
-      font-size: .82rem;
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-      background: #f5f5f5;
-    }
-
-    /* Sidebar */
-    #sidebar {
-      width: 260px;
-      background: var(--bg-dark);
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    #sidebar h1 {
-      font-size: .9rem;
-      line-height: 1.3;
-      padding: 1rem;
-      background: var(--bg-darker);
-      border-bottom: 1px solid var(--bg-hover);
-    }
-
-    #sidebar h2 {
-      font-size: .7rem;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--accent);
-      padding: .8rem 1rem .3rem;
-    }
-
-    #queries {
-      flex: 1;
-      overflow-y: auto;
-    }
-
-    .query-btn {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: .6rem 1rem;
-      background: none;
-      border: none;
-      border-left: 3px solid transparent;
-      color: var(--text-light);
-      cursor: pointer;
-      line-height: 1.4;
-    }
-
-    .query-btn:hover,
-    .query-btn.active {
-      background: var(--bg-hover);
-    }
-
-    .query-btn.active {
-      border-left-color: var(--accent);
-      color: #fff;
-    }
-
-    /* Main */
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    #loading-bar {
-      height: 3px;
-      display: none;
-      background: linear-gradient(90deg, var(--accent) 30%, var(--bg-dark) 60%, var(--accent));
-      background-size: 200%;
-      animation: shimmer 1.2s linear infinite;
-    }
-
-    @keyframes shimmer {
-      to {
-        background-position: -200%;
-      }
-    }
-
-    #editor-area {
-      padding: .85rem 1rem;
-      background: #fff;
-      border-bottom: 1px solid #ddd;
-    }
-
-    #editor-area label {
-      font-size: .75rem;
-      font-weight: 700;
-      color: #555;
-      display: block;
-      margin-bottom: .35rem;
-    }
-
-    #sort-controls {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid #ddd;
-    }
-
-    #sort-controls h3 {
-      font-size: .75rem;
-      font-weight: 700;
-      color: #555;
-      margin-bottom: .5rem;
-    }
-
-    .sort-item {
-      display: flex;
-      align-items: center;
-      gap: .5rem;
-      margin-bottom: .4rem;
-      font-size: .75rem;
-    }
-
-    .sort-item input[type="checkbox"] {
-      cursor: pointer;
-    }
-
-    .sort-item select {
-      padding: .2rem .4rem;
-      font-size: .75rem;
-      border: 1px solid #c8d0dd;
-      border-radius: 3px;
-    }
-
-    .sort-item button {
-      padding: .2rem .4rem;
-      font-size: .7rem;
-      background: var(--bg-dark);
-      color: #fff;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      margin-left: auto;
-    }
-
-    .sort-item button:hover {
-      background: var(--bg-hover);
-    }
-
-    #sparql-input {
-      width: 100%;
-      height: 130px;
-      resize: vertical;
-      font-family: monospace;
-      border: 1px solid #c8d0dd;
-      border-radius: 4px;
-      padding: .5rem;
-      line-height: 1.5;
-    }
-
-    #sparql-input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    #toolbar {
-      margin-top: .5rem;
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-    }
-
-    #run-btn {
-      padding: .4rem 1.1rem;
-      background: var(--bg-dark);
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    #run-btn:hover:not(:disabled) {
-      background: var(--bg-hover);
-    }
-
-    #run-btn:disabled {
-      background: #aaa;
-      cursor: default;
-    }
-
-    #status {
-      color: #666;
-    }
-
-    /* Results */
-    #results-area {
-      flex: 1;
-      overflow: auto;
-      padding: 1rem;
-    }
-
-    #no-results {
-      color: #888;
-      font-style: italic;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-
-    th {
-      background: var(--bg-dark);
-      color: #fff;
-      padding: .45rem .75rem;
-      text-align: left;
-      white-space: nowrap;
-      position: sticky;
-      top: 0;
-    }
-
-    td {
-      padding: .38rem .75rem;
-      border-bottom: 1px solid #eee;
-      vertical-align: top;
-    }
-
-    tr:hover td {
-      background: #f0f6ff;
-    }
-
-    .uri a {
-      color: var(--bg-dark);
-      text-decoration: none;
-      font-family: monospace;
-      font-size: .75rem;
-    }
-
-    .uri a:hover {
-      text-decoration: underline;
-    }
-
-    .id-link {
-      color: var(--accent) !important;
-      cursor: pointer;
-    }
-
-    .id-link:hover {
-      text-decoration: underline;
-    }
-
-    .num {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .err {
-      color: #c0392b;
-    }
-  </style>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="styles.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 
 <body>
 
-  <div id="sidebar">
-    <h1>CJEU Privacy<br>Citation Network</h1>
-    <h2>Saved Queries</h2>
-    <div id="queries"></div>
-  </div>
-
-  <div id="main">
-    <div id="loading-bar"></div>
-    <div id="editor-area">
-      <label for="sparql-input">SPARQL &mdash; Ctrl+Enter to run</label>
-      <textarea id="sparql-input" spellcheck="false"></textarea>
-      <div id="sort-controls">
-        <h3>Order By</h3>
-        <div id="sort-items"></div>
+  <div class="container-fluid vh-100 p-0 app-shell">
+    <div class="row m-0 h-100 g-0">
+      <div id="sidebar" class="offcanvas-lg offcanvas-start col-lg-3 col-xl-2 h-100" tabindex="-1">
+        <div class="card h-100 border-0 rounded-0 shadow-none" style="background:#1e3a5f;">
+          <div class="card-header d-flex align-items-center gap-2">
+            <span class="fs-5" aria-hidden="true">⚖</span>
+            <h1 class="h6 mb-0 lh-sm">CJEU Privacy<br><span class="fw-normal opacity-75">Citation Network</span></h1>
+          </div>
+          <div class="card-body d-flex flex-column p-0">
+            <div class="px-3 pt-2 pb-1 fw-bold text-uppercase user-select-none" style="font-size: 0.65rem; letter-spacing: 0.08em; color: #5ba3d9;">Saved Queries</div>
+            <div id="queries" class="list-group list-group-flush flex-grow-1 overflow-auto"></div>
+          </div>
+        </div>
       </div>
-      <div id="toolbar">
-        <button id="run-btn" disabled>Run</button>
-        <span id="status">Loading Comunica engine…</span>
+
+      <div id="main" class="col-12 col-lg-9 col-xl-10 d-flex flex-column h-100 p-0">
+        <div id="mobile-header" class="d-flex d-lg-none align-items-center flex-shrink-0 px-3 py-2 gap-2">
+          <button class="btn p-0 border-0 text-white" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Open navigation">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+              <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+            </svg>
+          </button>
+          <span class="fw-semibold small">CJEU Privacy</span>
+        </div>
+        <div id="loading-bar" class="progress rounded-0" style="height: 3px; display: none;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        <div id="editor-area" class="card border-0 border-bottom rounded-0 shadow-none">
+          <div class="card-body px-3 py-2">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+              <label class="d-block text-secondary fw-bold text-uppercase mb-0" style="font-size: 0.7rem; letter-spacing: 0.06em;" for="sparql-input">SPARQL <span class="fw-normal">&mdash; Ctrl+Enter to run</span></label>
+              <button id="toggle-editor-btn" type="button" class="btn btn-sm btn-outline-secondary">Minimize</button>
+            </div>
+            <div id="editor-body" class="mt-2">
+              <textarea id="sparql-input" class="form-control font-monospace" rows="7" spellcheck="false"></textarea>
+              <div class="mt-2">
+                <button id="run-btn" class="btn btn-primary btn-sm" disabled>Run</button>
+              </div>
+            </div>
+            <div id="sort-controls" class="mt-2 pt-2 border-top">
+              <div class="d-block text-secondary fw-bold text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.06em;">Order By</div>
+              <div id="sort-items"></div>
+            </div>
+            <div id="toolbar" class="d-flex align-items-center mt-3 gap-3">
+              <button id="info-btn" class="btn btn-outline-secondary btn-sm" disabled>Info</button>
+              <div id="show-text-wrap" class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="show-text-toggle">
+                <label class="form-check-label small" for="show-text-toggle">Show text</label>
+              </div>
+              <span id="status" class="small text-secondary">Loading Comunica engine…</span>
+            </div>
+          </div>
+        </div>
+        <div id="results-card" class="card flex-grow-1 border-0 rounded-0 overflow-hidden">
+          <div id="results-area" class="card-body p-0 flex-grow-1 overflow-auto" style="min-height: 0;">
+            <div class="p-3"><p id="no-results" class="text-muted fst-italic mb-0">Select a saved query or write your own, then click Run.</p></div>
+          </div>
+        </div>
       </div>
     </div>
-    <div id="results-area">
-      <p id="no-results">Select a saved query or write your own, then click Run.</p>
+  </div>
+
+  <div class="modal fade" id="paragraph-modal" tabindex="-1" aria-labelledby="paragraph-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="paragraph-modal-title">Paragraph</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <pre id="paragraph-modal-text" class="mb-0"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="info-modal" tabindex="-1" aria-labelledby="info-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="info-modal-title">TTL Schema Info</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-4">
+              <h6 class="mb-2">Summary</h6>
+              <table class="table table-sm mb-0">
+                <tbody id="schema-summary"></tbody>
+              </table>
+            </div>
+            <div class="col-12 col-lg-4">
+              <h6 class="mb-2">Classes</h6>
+              <div class="border rounded p-2 small" style="max-height:52vh; overflow:auto;">
+                <ul id="schema-classes" class="list-unstyled mb-0"></ul>
+              </div>
+            </div>
+            <div class="col-12 col-lg-4">
+              <h6 class="mb-2">Properties</h6>
+              <div class="border rounded p-2 small" style="max-height:52vh; overflow:auto;">
+                <ul id="schema-properties" class="list-unstyled mb-0"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -312,115 +125,23 @@
     "use strict";
 
     import oxiInit, * as oxigraph from "https://cdn.jsdelivr.net/npm/oxigraph@0.5.6/web.js";
+    import { PFX, SAVED_QUERIES } from "./queries.js";
 
     const TTL_URL = new URL("citations.ttl", window.location.href).href;
 
-    const PFX = `PREFIX cit:     <https://example.org/cjeu/citation#>
-PREFIX eli:     <http://data.europa.eu/eli/ontology#>
-PREFIX dcterms: <http://purl.org/dc/terms/>
-PREFIX rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-`;
-
-    const SAVED_QUERIES = [
-      {
-        title: "Most-cited paragraphs",
-        sparql: PFX +
-          `SELECT ?cited ?paragraph ?title (COUNT(?cit) AS ?times_cited)
-WHERE {
-  ?cit a cit:Citation ; cit:citesParagraph ?p .
-  ?p cit:ofJudgment ?cited ; cit:paragraphNumber ?paragraph .
-  OPTIONAL { ?cited dcterms:title ?title }
-}
-GROUP BY ?cited ?paragraph ?title
-ORDER BY DESC(?times_cited)
-LIMIT 50`,
-      },
-      {
-        title: "Most-cited cases (distinct sources)",
-        sparql: PFX +
-          `SELECT ?cited ?title (COUNT(DISTINCT ?src) AS ?citing_cases)
-WHERE {
-  ?cit a cit:Citation ;
-       cit:sourceJudgment ?src ;
-       cit:citedJudgment ?cited .
-  OPTIONAL { ?cited dcterms:title ?title }
-}
-GROUP BY ?cited ?title
-ORDER BY DESC(?citing_cases)
-LIMIT 50`,
-      },
-      {
-        title: "Most-cited cases",
-        sparql: PFX +
-          `SELECT ?cited ?title
-       (COUNT(?cit) AS ?total_citations)
-       (COUNT(DISTINCT ?src) AS ?citing_cases)
-WHERE {
-  ?cit a cit:Citation ;
-       cit:sourceJudgment ?src ;
-       cit:citedJudgment ?cited .
-  OPTIONAL { ?cited dcterms:title ?title }
-}
-GROUP BY ?cited ?title
-ORDER BY DESC(?total_citations)
-LIMIT 50`,
-      },
-      {
-        title: "Most-citing source paragraphs",
-        sparql: PFX +
-          `SELECT ?src ?srcPara ?text (COUNT(?cit) AS ?outgoing)
-WHERE {
-  ?cit a cit:Citation ; cit:sourceParagraph ?sp .
-  ?sp cit:ofJudgment ?src ; cit:paragraphNumber ?srcPara .
-  OPTIONAL { ?sp cit:text ?text }
-}
-GROUP BY ?src ?srcPara ?text
-ORDER BY DESC(?outgoing)
-LIMIT 50`,
-      },
-      {
-        title: "Citations by source case",
-        sparql: PFX +
-          `SELECT ?src (COUNT(?cit) AS ?citations_made)
-WHERE {
-  ?cit a cit:Citation ; cit:sourceJudgment ?src .
-}
-GROUP BY ?src
-ORDER BY DESC(?citations_made)`,
-      },
-      {
-        title: "Paragraph citation detail",
-        sparql: PFX +
-          `SELECT ?src ?srcPara ?srcTextCleaned ?cited ?citedPara ?citedTextCleaned
-WHERE {
-  ?cit a cit:Citation ;
-       cit:sourceParagraph ?sp ;
-       cit:citesParagraph ?tp .
-  ?sp cit:ofJudgment ?src ; cit:paragraphNumber ?srcPara .
-  ?tp cit:ofJudgment ?cited ; cit:paragraphNumber ?citedPara .
-  OPTIONAL { ?sp cit:text ?srcText }
-  OPTIONAL { ?tp cit:text ?citedText }
-  BIND(COALESCE(?srcText, "") AS ?srcTextCleaned)
-  BIND(COALESCE(?citedText, "") AS ?citedTextCleaned)
-  FILTER(BOUND(?srcText) || BOUND(?citedText))
-}
-GROUP BY ?src ?srcPara ?srcTextCleaned ?cited ?citedPara ?citedTextCleaned
-LIMIT 200`,
-      },
-    ];
-
-    /* ── Filter-query builder ── */
-    function isEcliUri(uri) {
-      try {
-        const p = new URL(uri).searchParams.get("uri");
-        return p && /^(?:ecli:|CELEX:)/i.test(p);
-      } catch { return false; }
+    /* ── URI helpers ── */
+    function getUriParam(uri) {
+      try { return new URL(uri).searchParams.get("uri"); } catch { return null; }
     }
 
+    function isEcliUri(uri) {
+      const p = getUriParam(uri);
+      return p != null && /^(?:ecli:|CELEX:)/i.test(p);
+    }
+
+    /* ── Filter-query builder ── */
     function buildFilterQuery(uri) {
-      const url = new URL(uri);
-      const isPara = url.hash !== "";
+      const isPara = uri.includes("#");
       const u = `<${uri}>`;
 
       if (isPara) {
@@ -463,15 +184,30 @@ ORDER BY DESC(?occurrences)`;
 
     /* ── Sort builder ── */
     function extractSelectVars(sparql) {
-      const selectMatch = sparql.match(/SELECT\s+(.*?)(?:WHERE|where)/is);
-      if (!selectMatch) return [];
-      const selectPart = selectMatch[1];
+      const m = sparql.match(/SELECT\s+(?:DISTINCT\s+)?(.*?)(?:WHERE|$)/is);
+      if (!m) return [];
+      const selectPart = m[1];
+      
       const vars = [];
-      const varMatches = selectPart.matchAll(/\?(\w+)/g);
-      for (const m of varMatches) {
-        vars.push(m[1]);
+      let depth = 0;
+      for (let i = 0; i < selectPart.length; i++) {
+        if (selectPart[i] === '(') depth++;
+        else if (selectPart[i] === ')') depth--;
+        else if (depth === 0 && selectPart[i] === '?') {
+          const match = selectPart.slice(i).match(/^\?(\w+)/);
+          if (match) {
+            vars.push(match[1]);
+            i += match[0].length - 1;
+          }
+        } else if (depth > 0 && selectPart.slice(i, i + 3).toUpperCase() === 'AS ') {
+          const match = selectPart.slice(i).match(/^AS\s+\?(\w+)/i);
+          if (match) {
+            vars.push(match[1]);
+            i += match[0].length - 1;
+          }
+        }
       }
-      return vars;
+      return [...new Set(vars)];
     }
 
     function updateSortControls() {
@@ -479,41 +215,35 @@ ORDER BY DESC(?occurrences)`;
       const vars = extractSelectVars(sparql);
       const sortItemsEl = document.getElementById("sort-items");
       sortItemsEl.innerHTML = "";
+      updateTextToggleVisibility();
       
       if (vars.length === 0) return;
       
       // Single dropdown to select variable
       const selectDiv = document.createElement("div");
-      selectDiv.style.display = "flex";
-      selectDiv.style.gap = ".5rem";
-      selectDiv.style.alignItems = "center";
-      selectDiv.style.marginBottom = ".5rem";
+      selectDiv.className = "d-flex align-items-center gap-2 mb-2 flex-wrap";
       
       const dropdown = document.createElement("select");
       dropdown.id = "sort-var-select";
+      dropdown.className = "form-select form-select-sm w-auto";
       dropdown.innerHTML = '<option value="">Select variable...</option>' + 
         vars.map(v => `<option value="${v}">${v}</option>`).join("");
       
       const dirSelect = document.createElement("select");
       dirSelect.id = "sort-dir-select";
+      dirSelect.className = "form-select form-select-sm w-auto";
       dirSelect.innerHTML = '<option value="ASC">ASC</option><option value="DESC">DESC</option>';
       
       const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "btn btn-sm btn-outline-primary";
       addBtn.textContent = "Add";
-      addBtn.style.padding = ".2rem .6rem";
-      addBtn.style.fontSize = ".75rem";
-      addBtn.style.background = "var(--bg-dark)";
-      addBtn.style.color = "#fff";
-      addBtn.style.border = "none";
-      addBtn.style.borderRadius = "3px";
-      addBtn.style.cursor = "pointer";
       
       addBtn.addEventListener("click", () => {
         const varName = dropdown.value;
         if (varName) {
           addSortItem(varName, dirSelect.value, listsDiv);
           dropdown.value = "";
-          dropdown.focus();
         }
       });
       
@@ -526,35 +256,26 @@ ORDER BY DESC(?occurrences)`;
       const listsDiv = document.createElement("div");
       listsDiv.id = "sort-list";
       sortItemsEl.appendChild(listsDiv);
-      
-      dropdown.focus();
     }
 
     function addSortItem(varName, dir, containerEl) {
       const div = document.createElement("div");
-      div.className = "sort-item";
-      div.style.display = "flex";
-      div.style.alignItems = "center";
-      div.style.gap = ".5rem";
-      div.style.marginBottom = ".3rem";
+      div.className = "sort-item d-flex align-items-center gap-2 mb-2";
       
       const label = document.createElement("span");
+      label.className = "small text-secondary fw-semibold";
       label.textContent = varName;
-      label.style.minWidth = "60px";
       
       const dirSelect = document.createElement("select");
+      dirSelect.className = "form-select form-select-sm w-auto";
       dirSelect.innerHTML = '<option value="ASC">ASC</option><option value="DESC">DESC</option>';
       dirSelect.value = dir;
       dirSelect.addEventListener("change", rebuildOrderBy);
       
       const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn btn-sm btn-outline-danger";
       removeBtn.textContent = "×";
-      removeBtn.style.padding = "0 .4rem";
-      removeBtn.style.fontSize = ".9rem";
-      removeBtn.style.background = "#ccc";
-      removeBtn.style.border = "none";
-      removeBtn.style.borderRadius = "2px";
-      removeBtn.style.cursor = "pointer";
       removeBtn.addEventListener("click", () => {
         div.remove();
         rebuildOrderBy();
@@ -595,20 +316,193 @@ ORDER BY DESC(?occurrences)`;
     /* ── Build sidebar ── */
     const queriesEl = document.getElementById("queries");
     const editor = document.getElementById("sparql-input");
+    const editorBody = document.getElementById("editor-body");
+    const toggleEditorBtn = document.getElementById("toggle-editor-btn");
+    const clearActive = () => queriesEl.querySelectorAll(".list-group-item").forEach(b => b.classList.remove("active"));
+    const EDITOR_COLLAPSED_KEY = "cjeu.editorCollapsed";
     
     const runBtn = document.getElementById("run-btn");
+    const infoBtn = document.getElementById("info-btn");
+    const showTextWrap = document.getElementById("show-text-wrap");
+    const showTextToggle = document.getElementById("show-text-toggle");
     const statusEl = document.getElementById("status");
     const resultsEl = document.getElementById("results-area");
     const loadingBar = document.getElementById("loading-bar");
+    const paragraphModalEl = document.getElementById("paragraph-modal");
+    const paragraphModalTitleEl = document.getElementById("paragraph-modal-title");
+    const paragraphModalTextEl = document.getElementById("paragraph-modal-text");
+    const paragraphModal = paragraphModalEl ? new bootstrap.Modal(paragraphModalEl) : null;
+    const infoModalEl = document.getElementById("info-modal");
+    const infoModal = infoModalEl ? new bootstrap.Modal(infoModalEl) : null;
+    const schemaSummaryEl = document.getElementById("schema-summary");
+    const schemaClassesEl = document.getElementById("schema-classes");
+    const schemaPropertiesEl = document.getElementById("schema-properties");
     let pendingSavedQueryRun = false;
     let rdfStore = null;
+    let schemaCache = null;
+
+    const RDF_TYPE = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>";
+
+    function isTextVar(varName) {
+      return /text/i.test(varName);
+    }
+
+    function updateTextToggleVisibility() {
+      const vars = extractSelectVars(editor.value);
+      const hasText = vars.some(isTextVar);
+      const wasHidden = showTextWrap.classList.contains("d-none");
+      showTextWrap.classList.toggle("d-none", !hasText);
+      if (!hasText) {
+        showTextToggle.checked = false;
+      } else if (wasHidden) {
+        showTextToggle.checked = window.matchMedia("(min-width: 992px)").matches;
+      }
+    }
+
+    function isParagraphVar(varName) {
+      return /paragraph$/i.test(varName) || /Para$/.test(varName);
+    }
+
+    function getParagraphText(row, paragraphVar, baseVar = "") {
+      const candidates = [
+        `${baseVar}TextCleaned`,
+        `${baseVar}Text`,
+        `${paragraphVar}TextCleaned`,
+        `${paragraphVar}Text`,
+        "text",
+        "srcTextCleaned",
+        "srcText",
+        "citedTextCleaned",
+        "citedText"
+      ].filter(Boolean);
+      for (const name of candidates) {
+        const val = row[name]?.value;
+        if (val && val.trim()) return val;
+      }
+      return "No paragraph text available for this row.";
+    }
+
+    function openParagraphModal(paragraphVar, paraValue, row, baseVar = "") {
+      if (!paragraphModal) return;
+      const label = baseVar ? `${baseVar} paragraph ${paraValue}` : `${paragraphVar} ${paraValue}`;
+      paragraphModalTitleEl.textContent = label;
+      paragraphModalTextEl.textContent = getParagraphText(row, paragraphVar, baseVar);
+      paragraphModal.show();
+    }
+
+    function shortTerm(uri) {
+      const m = uri.match(/[/#]([^/#]+)$/);
+      return m ? m[1] : uri;
+    }
+
+    function bindingRows(sparql) {
+      const result = rdfStore.query(sparql);
+      if (!Array.isArray(result)) return [];
+      return result.map((binding) => {
+        const row = {};
+        for (const [key, value] of binding.entries()) {
+          const name = (typeof key === "string")
+            ? key.replace(/^\?/, "")
+            : ((key && key.value) ? key.value.replace(/^\?/, "") : String(key).replace(/^\?/, ""));
+          row[name] = value;
+        }
+        return row;
+      });
+    }
+
+    function buildSchemaInfo() {
+      if (!rdfStore) return null;
+
+      const classes = bindingRows(`SELECT ?class (COUNT(?s) AS ?count)
+WHERE { ?s ${RDF_TYPE} ?class }
+GROUP BY ?class
+ORDER BY DESC(?count)`).map(r => ({
+        uri: r.class?.value ?? "",
+        count: Number(r.count?.value ?? 0)
+      })).filter(r => r.uri);
+
+      const properties = bindingRows(`SELECT ?p (COUNT(*) AS ?count)
+WHERE { ?s ?p ?o }
+GROUP BY ?p
+ORDER BY DESC(?count)`).map(r => ({
+        uri: r.p?.value ?? "",
+        count: Number(r.count?.value ?? 0)
+      })).filter(r => r.uri);
+
+      return { triples: rdfStore.size, classes, properties };
+    }
+
+    function renderSchemaInfo(schema) {
+      schemaSummaryEl.innerHTML = "";
+      schemaClassesEl.innerHTML = "";
+      schemaPropertiesEl.innerHTML = "";
+
+      const pushSummary = (label, value) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<th class="text-nowrap">${label}</th><td>${value}</td>`;
+        schemaSummaryEl.appendChild(tr);
+      };
+
+      pushSummary("Triples", schema.triples.toLocaleString());
+      pushSummary("Distinct classes", schema.classes.length.toLocaleString());
+      pushSummary("Distinct properties", schema.properties.length.toLocaleString());
+
+      if (schema.classes.length === 0) {
+        const li = document.createElement("li");
+        li.className = "text-muted fst-italic";
+        li.textContent = "No explicit rdf:type class assertions.";
+        schemaClassesEl.appendChild(li);
+      } else {
+        schema.classes.forEach(({ uri, count }) => {
+          const li = document.createElement("li");
+          li.className = "mb-1";
+          li.innerHTML = `<span class="fw-semibold">${shortTerm(uri)}</span> <span class="text-muted">(${count.toLocaleString()})</span>`;
+          li.title = uri;
+          schemaClassesEl.appendChild(li);
+        });
+      }
+
+      schema.properties.forEach(({ uri, count }) => {
+        const li = document.createElement("li");
+        li.className = "mb-1";
+        li.innerHTML = `<span class="fw-semibold">${shortTerm(uri)}</span> <span class="text-muted">(${count.toLocaleString()})</span>`;
+        li.title = uri;
+        schemaPropertiesEl.appendChild(li);
+      });
+    }
+
+    function setEditorCollapsed(collapsed) {
+      editorBody.classList.toggle("d-none", collapsed);
+      toggleEditorBtn.textContent = collapsed ? "Show editor" : "Minimize";
+      toggleEditorBtn.setAttribute("aria-expanded", String(!collapsed));
+      try {
+        localStorage.setItem(EDITOR_COLLAPSED_KEY, collapsed ? "1" : "0");
+      } catch {
+        // Ignore storage errors (e.g., privacy mode restrictions).
+      }
+    }
+
+    toggleEditorBtn.addEventListener("click", () => {
+      setEditorCollapsed(!editorBody.classList.contains("d-none"));
+    });
+
+    try {
+      const saved = localStorage.getItem(EDITOR_COLLAPSED_KEY);
+      setEditorCollapsed(saved === null ? true : saved === "1");
+    } catch {
+      setEditorCollapsed(true);
+    }
+
+    // Default: show text on desktop (Bootstrap lg and up), hide on mobile.
+    showTextToggle.checked = window.matchMedia("(min-width: 992px)").matches;
+    updateTextToggleVisibility();
 
     SAVED_QUERIES.forEach((q) => {
       const btn = document.createElement("button");
-      btn.className = "query-btn";
+      btn.className = "list-group-item list-group-item-action text-start";
       btn.textContent = q.title;
       btn.addEventListener("click", () => {
-        queriesEl.querySelectorAll(".query-btn").forEach(b => b.classList.remove("active"));
+        clearActive();
         btn.classList.add("active");
         editor.value = q.sparql;
         updateSortControls();
@@ -622,7 +516,7 @@ ORDER BY DESC(?occurrences)`;
     });
 
     // Select first query
-    queriesEl.querySelector(".query-btn").click();
+    queriesEl.querySelector(".list-group-item").click();
 
     /* ── Init Oxigraph + pre-load dataset ── */
     (async () => {
@@ -633,6 +527,7 @@ ORDER BY DESC(?occurrences)`;
         const ttlText = await fetch(TTL_URL).then(r => r.text());
         rdfStore = new oxigraph.Store();
         rdfStore.load(ttlText, { format: "ttl", base_iri: window.location.href });
+        infoBtn.disabled = false;
         statusEl.textContent = `Ready — ${rdfStore.size.toLocaleString()} triples loaded. Ctrl+Enter to run.`;
         runBtn.disabled = false;
         if (pendingSavedQueryRun) {
@@ -645,37 +540,91 @@ ORDER BY DESC(?occurrences)`;
     })();
 
     /* ── Row renderer ── */
-    function appendRow(tbody, b, vars, numVars) {
+    function appendRow(tbody, b, vars, numVars, paraByBase) {
       const row = tbody.insertRow();
       vars.forEach(v => {
         const td = row.insertCell();
         const term = b[v];
         if (!term) return;
         if (term.termType === "NamedNode") {
-          td.className = "uri";
+          td.className = "small font-monospace";
           const a = document.createElement("a");
-          const uriParam = (() => { try { return new URL(term.value).searchParams.get("uri"); } catch { return null; } })();
+          a.className = "link-primary text-decoration-none";
+          const uriParam = getUriParam(term.value);
           a.textContent = (uriParam ?? term.value.replace(/^.*[/#]/, "")).replace(/^(?:ecli:|CELEX:)/i, "");
           a.title = term.value;
+          const paraVar = paraByBase.get(v);
+          const paraTerm = paraVar ? b[paraVar] : null;
+          const paraValue = paraTerm?.value;
           if (isEcliUri(term.value)) {
+            const wrap = document.createElement("div");
+            wrap.className = "d-inline-flex flex-column align-items-start gap-1";
             a.href = "#";
-            a.className = "id-link";
+            a.className = "link-primary fw-semibold";
             a.addEventListener("click", (e) => {
               e.preventDefault();
               editor.value = buildFilterQuery(term.value);
-              queriesEl.querySelectorAll(".query-btn").forEach(b => b.classList.remove("active"));
+              clearActive();
               updateSortControls();
               runQuery();
             });
+
+            if (paraValue) {
+              const pBtn = document.createElement("button");
+              pBtn.type = "button";
+              pBtn.className = "btn btn-link p-0 text-start text-decoration-none fw-semibold text-secondary lh-sm";
+              pBtn.style.fontSize = "0.86rem";
+              pBtn.textContent = `¶ ${paraValue}`;
+              pBtn.addEventListener("click", () => openParagraphModal(paraVar, paraValue, b, v));
+              wrap.appendChild(a);
+              wrap.appendChild(pBtn);
+            } else {
+              wrap.appendChild(a);
+            }
+
+            const eurlex = document.createElement("a");
+            eurlex.href = term.value;
+            eurlex.target = "_blank";
+            eurlex.rel = "noopener noreferrer";
+            eurlex.className = "eurlex-link text-decoration-none";
+            eurlex.title = "Open in EUR-Lex";
+            eurlex.innerHTML = '<span class="eurlex-logo" aria-hidden="true">EUR-Lex</span>';
+
+            wrap.appendChild(eurlex);
+            td.appendChild(wrap);
           } else {
             a.href = term.value;
             a.target = "_blank";
             a.rel = "noopener noreferrer";
+            if (paraValue) {
+              const wrap = document.createElement("div");
+              wrap.className = "d-inline-flex flex-column align-items-start gap-1";
+              const pBtn = document.createElement("button");
+              pBtn.type = "button";
+              pBtn.className = "btn btn-link p-0 text-start text-decoration-none fw-semibold text-secondary lh-sm";
+              pBtn.style.fontSize = "0.86rem";
+              pBtn.textContent = `¶ ${paraValue}`;
+              pBtn.addEventListener("click", () => openParagraphModal(paraVar, paraValue, b, v));
+              wrap.appendChild(a);
+              wrap.appendChild(pBtn);
+              td.appendChild(wrap);
+            } else {
+              td.appendChild(a);
+            }
           }
-          td.appendChild(a);
         } else {
-          if (numVars.has(v)) td.className = "num";
-          td.textContent = term.value;
+          if (isParagraphVar(v)) {
+            const pBtn = document.createElement("button");
+            pBtn.type = "button";
+            pBtn.className = "btn btn-link p-0 text-start text-decoration-none fw-semibold text-secondary lh-sm";
+            pBtn.style.fontSize = "0.86rem";
+            pBtn.textContent = `¶ ${term.value}`;
+            pBtn.addEventListener("click", () => openParagraphModal(v, term.value, b));
+            td.appendChild(pBtn);
+          } else {
+            if (numVars.has(v)) td.className = "text-end";
+            td.textContent = term.value;
+          }
         }
       });
     }
@@ -684,6 +633,15 @@ ORDER BY DESC(?occurrences)`;
     let currentQueryId = 0;
 
     runBtn.addEventListener("click", runQuery);
+    infoBtn.addEventListener("click", () => {
+      if (!rdfStore || !infoModal) return;
+      if (!schemaCache) schemaCache = buildSchemaInfo();
+      if (schemaCache) renderSchemaInfo(schemaCache);
+      infoModal.show();
+    });
+    showTextToggle.addEventListener("change", () => {
+      if (rdfStore) runQuery();
+    });
     editor.addEventListener("keydown", e => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runQuery();
     });
@@ -692,6 +650,7 @@ ORDER BY DESC(?occurrences)`;
       if (!rdfStore) return;
       const sparql = editor.value.trim();
       if (!sparql) return;
+      updateTextToggleVisibility();
 
       const queryId = ++currentQueryId;
 
@@ -719,39 +678,59 @@ ORDER BY DESC(?occurrences)`;
         });
 
         if (bindings.length === 0) {
-          resultsEl.innerHTML = '<p id="no-results">No results.</p>';
+          resultsEl.innerHTML = '<div class="p-3"><p id="no-results" class="text-muted fst-italic mb-0">No results.</p></div>';
           statusEl.textContent = "0 results.";
           return;
         }
 
-        let table = null, tbody = null;
-        const vars = Object.keys(bindings[0]);
+        let table, tbody;
+        const selectVars = extractSelectVars(sparql);
+        const vars = selectVars.length > 0 ? selectVars : Object.keys(bindings[0]);
+        const paraByBase = new Map();
+        vars.forEach(v => {
+          if (v.endsWith("Para")) {
+            const base = v.slice(0, -4);
+            if (vars.includes(base)) paraByBase.set(base, v);
+          }
+        });
+        if (vars.includes("cited") && vars.includes("paragraph") && !paraByBase.has("cited")) {
+          paraByBase.set("cited", "paragraph");
+        }
+        if (vars.includes("src") && vars.includes("paragraph") && !paraByBase.has("src")) {
+          paraByBase.set("src", "paragraph");
+        }
+        const pairedParaVars = new Set(paraByBase.values());
+        const visibleVars = vars.filter(v => !pairedParaVars.has(v) && (showTextToggle.checked || !isTextVar(v)));
+        const displayVars = visibleVars.length > 0 ? visibleVars : vars.filter(v => !pairedParaVars.has(v));
         const numVars = new Set();
         let count = bindings.length;
         const CHUNK = 50;
         let pending = bindings.slice();
 
         table = document.createElement("table");
+        table.className = "table table-sm table-hover table-striped align-middle mb-0";
         const thead = table.createTHead();
         const hrow = thead.insertRow();
-        vars.forEach(v => {
+        displayVars.forEach(v => {
           const th = document.createElement("th");
+          th.className = "sticky-top bg-dark text-white text-nowrap";
           th.textContent = v;
           hrow.appendChild(th);
         });
         tbody = table.createTBody();
-        resultsEl.appendChild(table);
+        const tableWrap = document.createElement("div");
+        tableWrap.className = "table-responsive m-3";
+        tableWrap.appendChild(table);
+        resultsEl.appendChild(tableWrap);
 
-        bindings.forEach(b => {
-          vars.forEach(v => {
-            const t = b[v];
-            if (t && t.termType === "Literal" && !isNaN(t.value)) numVars.add(v);
-          });
+        displayVars.forEach(v => {
+          const t = bindings[0][v];
+          if (t?.termType === "Literal" && !isNaN(t.value)) numVars.add(v);
         });
 
         const flush = () => {
           const chunk = pending.splice(0, CHUNK);
-          for (const b of chunk) appendRow(tbody, b, vars, numVars);
+          for (const b of chunk) appendRow(tbody, b, displayVars, numVars, paraByBase);
         };
 
         while (pending.length > 0) {
@@ -764,7 +743,7 @@ ORDER BY DESC(?occurrences)`;
         statusEl.textContent = `${count} result(s).`;
       } catch (e) {
         if (queryId !== currentQueryId) return;
-        resultsEl.innerHTML = `<p class="err">Error: ${e.message}</p>`;
+        resultsEl.innerHTML = `<p class="text-danger mb-0">Error: ${e.message}</p>`;
         statusEl.textContent = "Query failed.";
       } finally {
         if (queryId === currentQueryId) {
