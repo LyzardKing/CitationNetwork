@@ -1,26 +1,20 @@
 {
   "citations": {
-    "hash": "79f30b67cbaa66557ed35d06900e162bdf07667daa985325390f47bcc4ab29d3",
-    "size": 1023893504,
+    "hash": "3b61a140a0f0245c215f4b14fcef4971a5af6edce0c36fbf8ddaeb7e9dbdfed6",
+    "size": 868364288,
     "file": "citations.db",
     "tables": {
-      "sqlite_stat1": {
-        "count": 9
-      },
-      "citation_paths": {
-        "count": 509454
-      },
-      "sqlite_sequence": {
-        "count": 3
-      },
       "citations": {
         "count": 191292
+      },
+      "sqlite_sequence": {
+        "count": 1
       },
       "citation_paragraphs": {
         "count": 148477
       },
       "chains": {
-        "count": 509454
+        "count": 0
       },
       "cases": {
         "count": 42769
