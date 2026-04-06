@@ -15,7 +15,7 @@
       }
     },
     {
-      "variable": "Judgment_2Para",
+      "variable": "SrcParaNum",
       "node": {
         "type": "UserPrompt",
         "name": { "en": "Citing paragraph number" }
@@ -36,7 +36,7 @@
       }
     },
     {
-      "variable": "Judgment_4Para",
+      "variable": "CitedParaNum",
       "node": {
         "type": "UserPrompt",
         "name": { "en": "Cited paragraph number" }

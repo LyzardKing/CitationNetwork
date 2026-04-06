@@ -1,7 +1,14 @@
 formex
 .venv
+database/
+gemma3-270m-it-q4_0-web.task
+oxigraph_data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+*.db
+*.ttl
+*.hdt

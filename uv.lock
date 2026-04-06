@@ -231,6 +231,18 @@ wheels = [
 ]
 
 [[package]]
+name = "datasette-render-html"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "datasette" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/32/87bb45b4f790041575429fdf04681c6ef5a4104c4d710054c83a2b9391a9/datasette-render-html-1.0.tar.gz", hash = "sha256:8e7a9ab21caed72cf42ebef4cecb0e84a6d2068e4681b4eeddfc48c5379949ab", size = 2380, upload-time = "2023-03-09T02:47:40.977Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/fe/2ff9b3952ddd442004a44c78beee8dd842dae2ac16e9a7baa98329ebeea7/datasette_render_html-1.0-py3-none-any.whl", hash = "sha256:c6437c015bfb25bef983451b3840fc81fe9c1636c3158064d6ce04dde0f850f2", size = 2737, upload-time = "2023-03-09T02:47:39.465Z" },
+]
+
+[[package]]
 name = "flexcache"
 version = "0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -463,6 +475,18 @@ wheels = [
 ]
 
 [[package]]
+name = "neo4j"
+version = "6.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/01/d6ce65e4647f6cb2b9cca3b813978f7329b54b4e36660aaec1ddf0ccce7a/neo4j-6.1.0.tar.gz", hash = "sha256:b5dde8c0d8481e7b6ae3733569d990dd3e5befdc5d452f531ad1884ed3500b84", size = 239629, upload-time = "2026-01-12T11:27:34.777Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/5c/ee71e2dd955045425ef44283f40ba1da67673cf06404916ca2950ac0cd39/neo4j-6.1.0-py3-none-any.whl", hash = "sha256:3bd93941f3a3559af197031157220af9fd71f4f93a311db687bd69ffa417b67d", size = 325326, upload-time = "2026-01-12T11:27:33.196Z" },
+]
+
+[[package]]
 name = "numpy"
 version = "2.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -590,10 +614,12 @@ source = { virtual = "." }
 dependencies = [
     { name = "bs4" },
     { name = "datasette" },
+    { name = "datasette-render-html" },
     { name = "lxml" },
     { name = "pandas" },
     { name = "platformdirs" },
     { name = "rdflib" },
+    { name = "rdflib-neo4j" },
     { name = "requests" },
     { name = "requests-cache" },
     { name = "sparqlwrapper" },
@@ -604,10 +630,12 @@ dependencies = [
 requires-dist = [
     { name = "bs4", specifier = ">=0.0.2" },
     { name = "datasette", specifier = ">=0.65.2" },
+    { name = "datasette-render-html", specifier = ">=1.0" },
     { name = "lxml", specifier = ">=6.0.2" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "platformdirs", specifier = ">=4.9.4" },
     { name = "rdflib", specifier = ">=7.6.0" },
+    { name = "rdflib-neo4j", specifier = ">=1.1" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "requests-cache", specifier = ">=1.3.1" },
     { name = "sparqlwrapper", specifier = ">=2.0.0" },
@@ -642,6 +670,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/01/979e98d542a70714b0cb2b6728ed0b7c46792b695e3eaec3e20711271ca3/python_multipart-0.0.22.tar.gz", hash = "sha256:7340bef99a7e0032613f56dc36027b959fd3b30a787ed62d310e951f7c3a3a58", size = 37612, upload-time = "2026-01-25T10:15:56.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1b/d0/397f9626e711ff749a95d96b7af99b9c566a9bb5129b8e4c10fc4d100304/python_multipart-0.0.22-py3-none-any.whl", hash = "sha256:2b2cd894c83d21bf49d702499531c7bafd057d730c201782048f7945d82de155", size = 24579, upload-time = "2026-01-25T10:15:54.811Z" },
+]
+
+[[package]]
+name = "pytz"
+version = "2026.1.post1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/db/b8721d71d945e6a8ac63c0fc900b2067181dbb50805958d4d4661cf7d277/pytz-2026.1.post1.tar.gz", hash = "sha256:3378dde6a0c3d26719182142c56e60c7f9af7e968076f31aae569d72a0358ee1", size = 321088, upload-time = "2026-03-03T07:47:50.683Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/99/781fe0c827be2742bcc775efefccb3b048a3a9c6ce9aec0cbf4a101677e5/pytz-2026.1.post1-py2.py3-none-any.whl", hash = "sha256:f2fd16142fda348286a75e1a524be810bb05d444e5a081f37f7affc635035f7a", size = 510489, upload-time = "2026-03-03T07:47:49.167Z" },
 ]
 
 [[package]]
@@ -690,6 +727,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/f5/18bb77b7af9526add0c727a3b2048959847dc5fb030913e2918bf384fec3/rdflib-7.6.0.tar.gz", hash = "sha256:6c831288d5e4a5a7ece85d0ccde9877d512a3d0f02d7c06455d00d6d0ea379df", size = 4943826, upload-time = "2026-02-13T07:15:55.938Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/10/c2/6604a71269e0c1bd75656d5a001432d16f2cc5b8c057140ec797155c295e/rdflib-7.6.0-py3-none-any.whl", hash = "sha256:30c0a3ebf4c0e09215f066be7246794b6492e054e782d7ac2a34c9f70a15e0dd", size = 615416, upload-time = "2026-02-13T07:15:46.487Z" },
+]
+
+[[package]]
+name = "rdflib-neo4j"
+version = "1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "neo4j" },
+    { name = "rdflib" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/59/48dcd0adac88f528cebc82eee5faa6d7eafc35d66cb4ee46cc07eedcf9cc/rdflib_neo4j-1.1.tar.gz", hash = "sha256:423435ee44c9375da713c522e6ce4d69d80e8e7177660ac6939514a73bd14ac1", size = 17770, upload-time = "2024-08-19T13:27:34.527Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/a3/093d34de06174dcec25572b9256edcef076205086185e445748a9ed8a47b/rdflib_neo4j-1.1-py3-none-any.whl", hash = "sha256:2add950e278cb4d2269ff29bb070ec23824f3cd6bd6d96f8532e8ae414cba167", size = 19878, upload-time = "2024-08-19T13:27:33.632Z" },
 ]
 
 [[package]]

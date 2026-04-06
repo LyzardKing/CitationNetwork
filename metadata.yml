@@ -1,0 +1,251 @@
+title: CJEU Privacy Citation Network
+description: Citations between CJEU judgments citing GDPR / Directive 95/46
+databases:
+  citations:
+    queries:
+      most_cited_paragraphs:
+        title: Most-cited paragraphs
+        description: Which paragraphs of which cases are cited most often across the corpus
+        sql: |
+          SELECT c.cited_celex,
+                cs.title,
+                cp.paragraph,
+                COUNT(*) AS times_cited
+          FROM   citation_paragraphs cp
+          JOIN   citations c ON cp.citation_id = c.id
+          LEFT   JOIN cases cs ON cs.celex = c.cited_celex
+          GROUP  BY c.cited_celex, cp.paragraph
+          ORDER  BY times_cited DESC
+          LIMIT  50
+      most_cited_cases:
+        title: Most-cited cases
+        description: Which cases (regardless of paragraph) are cited most often
+        sql: |
+          SELECT c.cited_celex,
+                cs.title,
+                cs.domain,
+                cs.legal_basis,
+                cs.cited_works,
+                COUNT(*)                     AS total_citations,
+                COUNT(DISTINCT c.source_celex) AS citing_cases
+          FROM   citations c
+          LEFT   JOIN cases cs ON cs.celex = c.cited_celex
+          WHERE  c.cited_celex IS NOT NULL
+          GROUP  BY c.cited_celex
+          ORDER  BY total_citations DESC
+          LIMIT  50
+      most_cited_cases_distinct_sources:
+        title: Most-cited cases (distinct sources)
+        description: Which cases are cited by the largest number of distinct source cases
+        hide_sql: true
+        params:
+        - citing_instrument
+        - citing_instrument_op
+        description_html: |-
+          <p>Which cases are cited by the largest number of distinct source cases.</p>
+          <p><strong>Citing instrument(s)</strong>: JSON array of instrument identifiers, e.g. ["61954CJ0001","61955CJ0008"]. Leave empty to disable the filter.</p>
+          <p><strong>Operator</strong>: use <code>OR</code> to match any, <code>AND</code> to require all.</p>
+        sql: |
+          SELECT c.cited_celex,
+                cs.title,
+                COUNT(DISTINCT c.source_celex) AS citing_cases
+          FROM   citations c
+          LEFT   JOIN cases cs ON cs.celex = c.cited_celex
+          WHERE  c.cited_celex IS NOT NULL
+            AND c.source_celex IS NOT NULL
+            AND c.source_celex != c.cited_celex
+            AND (
+              :citing_instrument IS NULL
+              OR trim(:citing_instrument) = ''
+              OR NOT json_valid(:citing_instrument)
+              OR (
+                :citing_instrument_op = 'OR'
+                AND EXISTS (
+                  SELECT 1
+                  FROM json_each(:citing_instrument) AS p
+                  WHERE (
+                    json_valid(cs.cited_works)
+                    AND EXISTS (
+                      SELECT 1 FROM json_each(cs.cited_works) AS cj WHERE cj.value = p.value
+                    )
+                  )
+                  OR (cs.cited_works LIKE '%' || p.value || '%')
+                )
+              )
+              OR (
+                :citing_instrument_op = 'AND'
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM json_each(:citing_instrument) AS p
+                  WHERE NOT (
+                    (json_valid(cs.cited_works)
+                     AND EXISTS (
+                       SELECT 1 FROM json_each(cs.cited_works) AS cj WHERE cj.value = p.value
+                     )
+                    )
+                    OR (cs.cited_works LIKE '%' || p.value || '%')
+                  )
+                )
+              )
+            )
+          GROUP  BY c.cited_celex
+          ORDER  BY citing_cases DESC
+          LIMIT  50
+      most_citing_paragraphs:
+        title: Most-citing source paragraphs
+        description: Which paragraphs in the source judgments contain the most outgoing citations
+        sql: |
+          SELECT c.source_celex,
+                c.source_paragraph,
+                p.paragraph_text,
+                COUNT(*) AS outgoing_citations
+          FROM   citations c
+          LEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph
+          WHERE  c.source_paragraph IS NOT NULL
+          GROUP  BY c.source_celex, c.source_paragraph
+          ORDER  BY outgoing_citations DESC
+          LIMIT  50
+      paragraphs_with_chains:
+        title: Paragraphs (view chains)
+        description: List paragraphs with a link to view precomputed citation chains starting from that paragraph.
+        hide_sql: true
+        sql: |
+          SELECT p.celex AS celex,
+                 p.paragraph AS paragraph,
+                 p.paragraph_text AS paragraph_text,
+                 'http://127.0.0.1:8001/citations/citation_chains?start_celex=' || p.celex || '&start_paragraph=' || replace(replace(replace(p.paragraph, ' ', '%20'), '#', '%23'), '/', '%2F') AS chains_link
+          FROM paragraphs p
+          ORDER BY p.celex, p.paragraph
+          LIMIT 200
+        columns:
+          chains_link:
+            is_url: true
+      citation_counts_by_source:
+        title: Citation counts by source case
+        description: How many outgoing citations each source judgment contains
+        sql: |
+          SELECT source_celex,
+                COUNT(*) AS citations_made
+          FROM   citations
+          GROUP  BY source_celex
+          ORDER  BY citations_made DESC
+      paragraph_citation_detail:
+        title: Paragraph citation detail
+        description: "Full list: source paragraph → cited case + paragraph (most frequent first)"
+        sql: |
+          SELECT c.source_celex,
+                c.source_paragraph,
+                p.paragraph_text   AS source_paragraph_text,
+                c.cited_celex,
+                cp.paragraph        AS cited_paragraph,
+                COUNT(*)            AS occurrences
+          FROM   citation_paragraphs cp
+          JOIN   citations c ON cp.citation_id = c.id
+          LEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph
+          GROUP  BY c.source_celex, c.source_paragraph, c.cited_celex, cp.paragraph
+          ORDER  BY occurrences DESC, c.source_celex, cp.paragraph
+          LIMIT  200
+      citations_made_by_case:
+        title: Citations made by a case
+        description: List of outgoing citations contained in a given case (source_celex)
+        params:
+        - celex
+        hide_sql: true
+        sql: |
+          SELECT c.id, c.source_celex, c.source_paragraph, c.cited_celex, c.cited_paragraphs
+          FROM citations c
+          WHERE c.source_celex = :celex
+          ORDER BY c.source_celex, c.source_paragraph
+          LIMIT 1000
+
+      citations_of_case:
+        title: Citations of a case
+        description: List of incoming citations that cite the given case (cited_celex)
+        params:
+        - celex
+        hide_sql: true
+        sql: |
+          SELECT c.id, c.source_celex, c.source_paragraph, c.cited_celex, c.cited_paragraphs
+          FROM citations c
+          WHERE c.cited_celex = :celex
+          ORDER BY c.source_celex, c.source_paragraph
+          LIMIT 1000
+      citation_chains:
+        title: Citation chains (precomputed)
+        description: List of precomputed citation chains containing a specific paragraph.
+        params:
+        - start_celex
+        - start_paragraph
+        hide_sql: true
+        sql: |
+          -- If no params supplied, list canonical chains (id + chain text)
+          SELECT c.id AS chain_id,
+                 c.chain AS path,
+                 NULL AS start_celex,
+                 NULL AS start_paragraph,
+                 NULL AS end_celex,
+                 NULL AS end_paragraph,
+                 NULL AS depth,
+                 'http://127.0.0.1:8001/citations/chain_detail?chain_id=' || c.id AS path_link
+          FROM chains c
+          WHERE (:start_celex IS NULL OR trim(:start_celex) = '') AND (:start_paragraph IS NULL OR trim(:start_paragraph) = '')
+
+          UNION ALL
+
+          -- Otherwise show matching citation_paths (one row per chain occurrence)
+          SELECT cp.chain_id AS chain_id,
+                 ch.chain AS path,
+                 cp.start_celex,
+                 cp.start_paragraph,
+                 cp.end_celex,
+                 cp.end_paragraph,
+                 cp.depth,
+                 'http://127.0.0.1:8001/citations/chain_detail?chain_id=' || cp.chain_id AS path_link
+          FROM citation_paths cp
+          JOIN chains ch ON ch.id = cp.chain_id
+          WHERE (
+            (:start_celex IS NULL OR trim(:start_celex) = '')
+            OR cp.start_celex = :start_celex
+          )
+          AND (
+            (:start_paragraph IS NULL OR trim(:start_paragraph) = '')
+            OR cp.start_paragraph = :start_paragraph
+          )
+          ORDER BY depth DESC
+          LIMIT 100
+        columns:
+          path_link:
+            is_url: true
+
+      chain_detail:
+        title: Chain detail
+        description: Given a `chain_id` (referring to `chains.id`), show the sequence of paragraphs/cases with metadata.
+        params:
+        - chain_id
+        hide_sql: true
+        sql: |
+           WITH RECURSIVE
+             chain_text AS (
+               SELECT chain FROM chains WHERE id = :chain_id
+             ),
+             tokens(position, token, rest) AS (
+               SELECT 0, '', (SELECT chain FROM chain_text) || ' -> '
+               UNION ALL
+               SELECT position+1,
+                 substr(rest, 1, instr(rest, ' -> ') - 1),
+                 substr(rest, instr(rest, ' -> ') + 4)
+               FROM tokens
+               WHERE instr(rest, ' -> ') > 0
+             )
+           SELECT t.position AS idx,
+             CASE WHEN instr(t.token, '#') > 0 THEN substr(t.token, 1, instr(t.token, '#')-1) ELSE t.token END AS celex,
+             CASE WHEN instr(t.token, '#') > 0 THEN substr(t.token, instr(t.token, '#')+1) ELSE NULL END AS paragraph,
+             cs.ECLI AS ecli,
+             cs.title AS case_title,
+             p.paragraph_text
+           FROM tokens t
+           LEFT JOIN cases cs ON cs.celex = CASE WHEN instr(t.token, '#') > 0 THEN substr(t.token, 1, instr(t.token, '#')-1) ELSE t.token END
+           LEFT JOIN paragraphs p ON p.celex = CASE WHEN instr(t.token, '#') > 0 THEN substr(t.token, 1, instr(t.token, '#')-1) ELSE t.token END
+               AND p.paragraph = CASE WHEN instr(t.token, '#') > 0 THEN substr(t.token, instr(t.token, '#')+1) ELSE NULL END
+           WHERE t.position > 0
+           ORDER BY t.position;

@@ -104,6 +104,14 @@
         </div>
         <div class="modal-body">
           <pre id="paragraph-modal-text" class="mb-0"></pre>
+          <div id="paragraph-modal-citations" class="mt-3 border-top pt-3" style="display:none;">
+            <p class="small fw-bold text-uppercase text-muted mb-2">Citations</p>
+            <div id="paragraph-modal-citations-body"></div>
+          </div>
+          <div id="paragraph-modal-chains" class="mt-3 border-top pt-3" style="display:none;">
+            <p class="small fw-bold text-uppercase text-muted mb-2">Citation chains</p>
+            <div id="paragraph-modal-chains-body"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -143,13 +151,26 @@
   </div>
 
   <script src="sparnatural-form/sparnatural-form.js"></script>
+  <script>
+    window.queryMatches = [];
+    let _resolveHdtModule;
+    window._hdtModuleReadyPromise = new Promise(r => { _resolveHdtModule = r; });
+    window.Module = {
+      locateFile: p => p === 'a.out.wasm' ? 'hdt-wasm.wasm' : p,
+      onRuntimeInitialized: () => _resolveHdtModule(),
+      print: () => {},
+      printErr: () => {}
+    };
+  </script>
+  <script src="sparqlEngine.js"></script>
+  <script src="hdt-wasm.js"></script>
   <script type="module">
     "use strict";
 
-    import oxiInit, * as oxigraph from "https://cdn.jsdelivr.net/npm/oxigraph@0.5.6/web.js";
     import { PFX, SAVED_QUERIES } from "./queries.js";
 
-    const TTL_URL = new URL("citations.ttl", window.location.href).href;
+    const HDT_URL = new URL("citations_no_text.hdt", window.location.href).href;
+    let paragraphTextMap = {};
 
     /* ── URI helpers ── */
     function getUriParam(uri) {
@@ -168,35 +189,35 @@
 
       if (isPara) {
         return PFX +
-`SELECT ?src ?cited ?srcPara ?srcText ?citedPara ?citedText
+`SELECT ?src ?srcPara ?cited ?citedPara
 WHERE {
-  ?cit a cit:Citation .
-  { ?cit cit:sourceParagraph ${u} }
-  UNION
-  { ?cit cit:citesParagraph ${u} }
-  OPTIONAL { ?cit cit:sourceJudgment ?src }
-  OPTIONAL { ?cit cit:citedJudgment ?cited }
-  OPTIONAL {
-    ?cit cit:sourceParagraph ?sp .
-    ?sp cit:paragraphNumber ?srcPara .
-    OPTIONAL { ?sp cit:text ?srcText }
+  {
+    ${u} cit:cites ?tp .
+    ${u} cit:ofJudgment ?src .
+    OPTIONAL { ${u} cit:paragraphNumber ?srcPara }
+    OPTIONAL { ?tp cit:ofJudgment ?cited }
+    OPTIONAL { ?tp cit:paragraphNumber ?citedPara }
   }
-  OPTIONAL {
-    ?cit cit:citesParagraph ?tp .
-    ?tp cit:paragraphNumber ?citedPara .
-    OPTIONAL { ?tp cit:text ?citedText }
+  UNION
+  {
+    ?sp cit:cites ${u} .
+    ?sp cit:ofJudgment ?src .
+    OPTIONAL { ?sp cit:paragraphNumber ?srcPara }
+    ${u} cit:ofJudgment ?cited .
+    OPTIONAL { ${u} cit:paragraphNumber ?citedPara }
   }
 }
 ORDER BY ?src ?cited`;
       } else {
         return PFX +
-`SELECT ?src ?srcPara ?cited ?citedPara (COUNT(?cit) AS ?occurrences)
+`SELECT ?src ?srcPara ?cited ?citedPara (COUNT(?sp) AS ?occurrences)
 WHERE {
-  ?cit a cit:Citation ;
-       cit:sourceJudgment ?src ;
-       cit:citedJudgment ?cited .
-  OPTIONAL { ?cit cit:sourceParagraph ?sp . ?sp cit:paragraphNumber ?srcPara }
-  OPTIONAL { ?cit cit:citesParagraph ?tp . ?tp cit:paragraphNumber ?citedPara }
+  ?sp a cit:Paragraph ;
+      cit:ofJudgment ?src ;
+      cit:paragraphNumber ?srcPara ;
+      cit:cites ?tp .
+  ?tp cit:ofJudgment ?cited .
+  OPTIONAL { ?tp cit:paragraphNumber ?citedPara }
   FILTER (?src = ${u} || ?cited = ${u})
 }
 GROUP BY ?src ?srcPara ?cited ?citedPara
@@ -362,7 +383,7 @@ ORDER BY DESC(?occurrences)`;
     const schemaClassesEl = document.getElementById("schema-classes");
     const schemaPropertiesEl = document.getElementById("schema-properties");
     let pendingSavedQueryRun = false;
-    let rdfStore = null;
+    let hdtReady = false;
     let schemaCache = null;
 
     const RDF_TYPE = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>";
@@ -421,14 +442,150 @@ ORDER BY DESC(?occurrences)`;
         const val = row[name]?.value;
         if (val && val.trim()) return val;
       }
-      return "No paragraph text available for this row.";
+      return null;
     }
 
-    function openParagraphModal(paragraphVar, paraValue, row, baseVar = "") {
+    function lookupParagraphText(judgmentUri, paraValue) {
+      if (!judgmentUri || !paraValue) return null;
+      const uri = `${judgmentUri}#${paraValue}`;
+      return paragraphTextMap[uri] ?? null;
+    }
+
+    function paraUriLabel(uri) {
+      const hashIdx = uri.indexOf("#");
+      const judgeUri = hashIdx >= 0 ? uri.slice(0, hashIdx) : uri;
+      const frag = hashIdx >= 0 ? uri.slice(hashIdx + 1) : "";
+      const raw = getUriParam(judgeUri) ?? judgeUri.replace(/^.*[\/#]/, "");
+      const caseId = raw.replace(/^(?:ecli:|CELEX:)/i, "");
+      return frag ? `${caseId} \u00b6 ${frag}` : caseId;
+    }
+
+    async function buildCitationChains(startUri, maxDepth = 4, maxPaths = 30) {
+      async function getCited(uri) {
+        try {
+          return (await bindingRows(PFX +
+`SELECT DISTINCT ?cp WHERE { <${uri}> cit:cites ?cp . ?cp a cit:Paragraph }`
+          )).map(r => r.cp?.value).filter(Boolean);
+        } catch { return []; }
+      }
+
+      const chains = [];
+      const stack = [[startUri]];
+      while (stack.length > 0 && chains.length < maxPaths) {
+        const path = stack.pop();
+        const tip = path[path.length - 1];
+        if (path.length > maxDepth) {
+          chains.push(path);
+          continue;
+        }
+        const cited = (await getCited(tip)).filter(u => !path.includes(u));
+        if (cited.length === 0) {
+          if (path.length > 1) chains.push(path);
+        } else {
+          for (const next of cited.slice().reverse()) {
+            stack.push([...path, next]);
+          }
+        }
+      }
+      return chains.map(path => path.map(paraUriLabel));
+    }
+
+    async function openParagraphModal(paragraphVar, paraValue, row, baseVar = "") {
       if (!paragraphModal) return;
       const label = baseVar ? `${baseVar} paragraph ${paraValue}` : `${paragraphVar} ${paraValue}`;
       paragraphModalTitleEl.textContent = label;
-      paragraphModalTextEl.textContent = getParagraphText(row, paragraphVar, baseVar);
+
+      let judgmentUri = baseVar && row[baseVar] ? row[baseVar].value : null;
+      if (!judgmentUri && paragraphVar.endsWith("Para")) {
+        const guess = paragraphVar.slice(0, -4);
+        if (row[guess]) judgmentUri = row[guess].value;
+      }
+      if (!judgmentUri) {
+        for (const c of ["src", "cited"]) {
+          if (row[c]) { judgmentUri = row[c].value; break; }
+        }
+      }
+
+      const text = getParagraphText(row, paragraphVar, baseVar)
+        ?? lookupParagraphText(judgmentUri, paraValue)
+        ?? "No paragraph text available.";
+      paragraphModalTextEl.textContent = text;
+
+      const citationsEl = document.getElementById("paragraph-modal-citations");
+      const citationsBodyEl = document.getElementById("paragraph-modal-citations-body");
+      citationsBodyEl.innerHTML = "";
+      citationsEl.style.display = "none";
+
+      if (hdtReady && judgmentUri) {
+        const paraUri = `${judgmentUri}#${paraValue}`;
+        const citRows = await bindingRows(PFX +
+`SELECT DISTINCT ?direction ?otherCase ?otherParaNum
+WHERE {
+  {
+    <${paraUri}> cit:cites ?target .
+    OPTIONAL { ?target cit:ofJudgment ?otherCase }
+    OPTIONAL { ?target cit:paragraphNumber ?otherParaNum }
+    BIND("cites" AS ?direction)
+  }
+  UNION
+  {
+    ?src cit:cites <${paraUri}> .
+    OPTIONAL { ?src cit:ofJudgment ?otherCase }
+    OPTIONAL { ?src cit:paragraphNumber ?otherParaNum }
+    BIND("cited by" AS ?direction)
+  }
+}
+ORDER BY ?direction ?otherCase ?otherParaNum`);
+
+        if (citRows.length > 0) {
+          citationsEl.style.display = "";
+          const cites = citRows.filter(r => r.direction?.value === "cites");
+          const citedBy = citRows.filter(r => r.direction?.value === "cited by");
+
+          const renderGroup = (title, rows) => {
+            if (!rows.length) return;
+            const heading = document.createElement("p");
+            heading.className = "small fw-semibold text-secondary mb-1";
+            heading.textContent = title;
+            citationsBodyEl.appendChild(heading);
+            const ul = document.createElement("ul");
+            ul.className = "list-unstyled mb-2 ps-2";
+            rows.forEach(r => {
+              const li = document.createElement("li");
+              li.className = "small font-monospace";
+              const raw = r.otherCase?.value ?? "";
+              const caseId = (getUriParam(raw) ?? raw.replace(/^.*[\/#]/, "")).replace(/^(?:ecli:|CELEX:)/i, "");
+              const pNum = r.otherParaNum?.value;
+              li.textContent = pNum ? `${caseId} ¶ ${pNum}` : (caseId || raw);
+              ul.appendChild(li);
+            });
+            citationsBodyEl.appendChild(ul);
+          };
+
+          renderGroup("Cites →", cites);
+          renderGroup("← Cited by", citedBy);
+        }
+
+        const chainsEl = document.getElementById("paragraph-modal-chains");
+        const chainsBodyEl = document.getElementById("paragraph-modal-chains-body");
+        chainsBodyEl.innerHTML = "";
+        chainsEl.style.display = "none";
+
+        const chains = await buildCitationChains(paraUri);
+        if (chains.length > 0) {
+          chainsEl.style.display = "";
+          const ul = document.createElement("ul");
+          ul.className = "list-unstyled mb-0 ps-2";
+          chains.forEach(chain => {
+            const li = document.createElement("li");
+            li.className = "small font-monospace mb-1";
+            li.textContent = chain.join(" \u2192 ");
+            ul.appendChild(li);
+          });
+          chainsBodyEl.appendChild(ul);
+        }
+      }
+
       paragraphModal.show();
     }
 
@@ -437,41 +594,77 @@ ORDER BY DESC(?occurrences)`;
       return m ? m[1] : uri;
     }
 
-    function bindingRows(sparql) {
-      const result = rdfStore.query(sparql);
-      if (!Array.isArray(result)) return [];
-      return result.map((binding) => {
-        const row = {};
-        for (const [key, value] of binding.entries()) {
-          const name = (typeof key === "string")
-            ? key.replace(/^\?/, "")
-            : ((key && key.value) ? key.value.replace(/^\?/, "") : String(key).replace(/^\?/, ""));
-          row[name] = value;
+    function parseTerm(v) {
+      if (!v) return null;
+      if (v.startsWith('<') && v.endsWith('>')) return { termType: 'NamedNode', value: v.slice(1, -1) };
+      if (v.startsWith('"')) {
+        const inner = v.slice(1);
+        const end = inner.lastIndexOf('"');
+        return { termType: 'Literal', value: end >= 0 ? inner.slice(0, end) : inner };
+      }
+      if (/^https?:|^urn:|^_:/.test(v)) return { termType: v.startsWith('_:') ? 'BlankNode' : 'NamedNode', value: v.startsWith('_:') ? v.slice(2) : v };
+      return { termType: 'Literal', value: v };
+    }
+
+    async function bindingRows(sparql) {
+      if (!hdtReady) return [];
+      return new Promise((resolve, reject) => {
+        const { HashMapDataset, Graph, PlanBuilder } = sparqlEngine;
+        const formatTV = v => v.startsWith('?') ? '' : v;
+        class HDTGraph extends Graph {
+          constructor() { super(); }
+          find(triple) {
+            const { subject, predicate, object } = triple;
+            window.queryMatches = [];
+            Module.ccall('search', null, ['string', 'string', 'string'], [
+              formatTV(subject), formatTV(predicate), formatTV(object)
+            ]);
+            return window.queryMatches;
+          }
         }
-        return row;
+        const dataset = new HashMapDataset('http://example.org#default', new HDTGraph());
+        const builder = new PlanBuilder(dataset);
+        const rows = [];
+        try {
+          const iterator = builder.build(sparql);
+          iterator.subscribe(
+            bindings => {
+              const raw = bindings.toObject();
+              const row = {};
+              for (const [k, v] of Object.entries(raw)) {
+                row[k.replace(/^\?/, '')] = parseTerm(v);
+              }
+              rows.push(row);
+            },
+            reject,
+            () => resolve(rows)
+          );
+        } catch (e) {
+          reject(e);
+        }
       });
     }
 
-    function buildSchemaInfo() {
-      if (!rdfStore) return null;
+    async function buildSchemaInfo() {
+      if (!hdtReady) return null;
 
-      const classes = bindingRows(`SELECT ?class (COUNT(?s) AS ?count)
+      const classes = (await bindingRows(`SELECT ?class (COUNT(?s) AS ?count)
 WHERE { ?s ${RDF_TYPE} ?class }
 GROUP BY ?class
-ORDER BY DESC(?count)`).map(r => ({
+ORDER BY DESC(?count)`)).map(r => ({
         uri: r.class?.value ?? "",
         count: Number(r.count?.value ?? 0)
       })).filter(r => r.uri);
 
-      const properties = bindingRows(`SELECT ?p (COUNT(*) AS ?count)
+      const properties = (await bindingRows(`SELECT ?p (COUNT(*) AS ?count)
 WHERE { ?s ?p ?o }
 GROUP BY ?p
-ORDER BY DESC(?count)`).map(r => ({
+ORDER BY DESC(?count)`)).map(r => ({
         uri: r.p?.value ?? "",
         count: Number(r.count?.value ?? 0)
       })).filter(r => r.uri);
 
-      return { triples: rdfStore.size, classes, properties };
+      return { triples: 0, classes, properties };
     }
 
     function renderSchemaInfo(schema) {
@@ -549,7 +742,7 @@ ORDER BY DESC(?count)`).map(r => ({
         btn.classList.add("active");
         editor.value = q.sparql;
         updateSortControls();
-        if (rdfStore) {
+        if (hdtReady) {
           runQuery();
         } else {
           pendingSavedQueryRun = true;
@@ -561,24 +754,26 @@ ORDER BY DESC(?count)`).map(r => ({
     // Select first query
     queriesEl.querySelector(".list-group-item").click();
 
-    /* ── Init Oxigraph + pre-load dataset ── */
+    /* ── Init HDT-WASM ── */
     (async () => {
       try {
-        statusEl.textContent = "Loading Oxigraph WASM…";
-        await oxiInit();
-        statusEl.textContent = "Loading dataset…";
-        const ttlText = await fetch(TTL_URL).then(r => r.text());
-        rdfStore = new oxigraph.Store();
-        rdfStore.load(ttlText, { format: "ttl", base_iri: window.location.href });
+        statusEl.textContent = "Loading HDT WASM…";
+        await window._hdtModuleReadyPromise;
+        statusEl.textContent = "Fetching HDT dataset (55 MB)…";
+        const buf = await fetch(HDT_URL).then(r => r.arrayBuffer());
+        Module['FS_createDataFile']('/', 'file.hdt', new Uint8Array(buf), true, true, true);
+        Module.ccall('loadHDT', null, [], null);
+        hdtReady = true;
         infoBtn.disabled = false;
-        statusEl.textContent = `Ready — ${rdfStore.size.toLocaleString()} triples loaded. Ctrl+Enter to run.`;
         runBtn.disabled = false;
+        statusEl.textContent = "Ready — HDT loaded. Ctrl+Enter to run.";
         if (pendingSavedQueryRun) {
           pendingSavedQueryRun = false;
           runQuery();
         }
       } catch (e) {
         statusEl.textContent = "Init failed: " + e.message;
+        console.error(e);
       }
     })();
 
@@ -714,24 +909,24 @@ ORDER BY DESC(?count)`).map(r => ({
       }
     });
 
-    infoBtn.addEventListener("click", () => {
-      if (!rdfStore || !infoModal) return;
-      if (!schemaCache) schemaCache = buildSchemaInfo();
+    infoBtn.addEventListener("click", async () => {
+      if (!hdtReady || !infoModal) return;
+      if (!schemaCache) schemaCache = await buildSchemaInfo();
       if (schemaCache) renderSchemaInfo(schemaCache);
       infoModal.show();
     });
     showTextToggle.addEventListener("change", () => {
-      if (rdfStore) runQuery();
+      if (hdtReady) runQuery();
     });
     showTitleToggle.addEventListener("change", () => {
-      if (rdfStore) runQuery();
+      if (hdtReady) runQuery();
     });
     editor.addEventListener("keydown", e => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runQuery();
     });
 
     async function runQuery() {
-      if (!rdfStore) return;
+      if (!hdtReady) return;
       const sparql = editor.value.trim();
       if (!sparql) return;
       updateTextToggleVisibility();
@@ -744,22 +939,9 @@ ORDER BY DESC(?count)`).map(r => ({
       resultsEl.innerHTML = "";
 
       try {
-        const result = rdfStore.query(sparql);
+        const result = await bindingRows(sparql);
         if (queryId !== currentQueryId) return;
-        if (!Array.isArray(result)) {
-          throw new Error("Only SELECT queries are supported in this UI.");
-        }
-
-        const bindings = result.map((binding) => {
-          const row = {};
-          for (const [key, value] of binding.entries()) {
-            const name = (typeof key === "string")
-              ? key.replace(/^\?/, "")
-              : ((key && key.value) ? key.value.replace(/^\?/, "") : String(key).replace(/^\?/, ""));
-            row[name] = value;
-          }
-          return row;
-        });
+        const bindings = result;
 
         if (bindings.length === 0) {
           resultsEl.innerHTML = '<div class="p-3"><p id="no-results" class="text-muted fst-italic mb-0">No results.</p></div>';

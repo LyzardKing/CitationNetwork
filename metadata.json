@@ -7,27 +7,32 @@
         "most_cited_paragraphs": {
           "title": "Most-cited paragraphs",
           "description": "Which paragraphs of which cases are cited most often across the corpus",
-          "sql": "SELECT c.cited_celex,\n       c.cited_no_case,\n       cs.title,\n       cp.paragraph,\n       COUNT(*) AS times_cited\nFROM   citation_paragraphs cp\nJOIN   citations c ON cp.citation_id = c.id\nLEFT   JOIN cases cs ON cs.celex = c.cited_celex\nGROUP  BY c.cited_celex, cp.paragraph\nORDER  BY times_cited DESC\nLIMIT  50"
+          "sql": "SELECT c.cited_celex,\n       cs.title,\n       cp.paragraph,\n       COUNT(*) AS times_cited\nFROM   citation_paragraphs cp\nJOIN   citations c ON cp.citation_id = c.id\nLEFT   JOIN cases cs ON cs.celex = c.cited_celex\nGROUP  BY c.cited_celex, cp.paragraph\nORDER  BY times_cited DESC\nLIMIT  50"
         },
         "most_cited_cases": {
           "title": "Most-cited cases",
           "description": "Which cases (regardless of paragraph) are cited most often",
-          "sql": "SELECT c.cited_celex,\n       c.cited_no_case,\n       c.cited_ecli,\n       cs.title,\n       COUNT(*)                     AS total_citations,\n       COUNT(DISTINCT c.source_celex) AS citing_cases\nFROM   citations c\nLEFT   JOIN cases cs ON cs.celex = c.cited_celex\nWHERE  c.cited_celex IS NOT NULL\nGROUP  BY c.cited_celex\nORDER  BY total_citations DESC\nLIMIT  50"
+          "sql": "SELECT c.cited_celex,\n       cs.title,\n       cs.domain,\n       cs.legal_basis,\n       cs.cited_works,\n       COUNT(*)                     AS total_citations,\n       COUNT(DISTINCT c.source_celex) AS citing_cases\nFROM   citations c\nLEFT   JOIN cases cs ON cs.celex = c.cited_celex\nWHERE  c.cited_celex IS NOT NULL\nGROUP  BY c.cited_celex\nORDER  BY total_citations DESC\nLIMIT  50"
+        },
+        "most_cited_cases_distinct_sources": {
+          "title": "Most-cited cases (distinct sources)",
+          "description": "Which cases are cited by the largest number of distinct source cases",
+          "sql": "CREATE VIEW my_search_view AS SELECT c.cited_celex,\n       cs.title,\n       cs.domain,\n       cs.legal_basis,\n       cs.cited_works,\n       COUNT(DISTINCT c.source_celex) AS citing_cases\nFROM   citations c\nLEFT   JOIN cases cs ON cs.celex = c.cited_celex\nWHERE  c.cited_celex IS NOT NULL\n  AND c.source_celex IS NOT NULL\n  AND c.source_celex != c.cited_celex\nGROUP  BY c.cited_celex\nORDER  BY citing_cases DESC\nLIMIT  50"
         },
         "most_citing_paragraphs": {
           "title": "Most-citing source paragraphs",
           "description": "Which paragraphs in the source judgments contain the most outgoing citations",
-          "sql": "SELECT c.source_celex,\n       c.source_no_case,\n       c.source_paragraph,\n       p.paragraph_text,\n       COUNT(*) AS outgoing_citations\nFROM   citations c\nLEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph\nWHERE  c.source_paragraph IS NOT NULL\nGROUP  BY c.source_celex, c.source_paragraph\nORDER  BY outgoing_citations DESC\nLIMIT  50"
+          "sql": "SELECT c.source_celex,\n       c.source_paragraph,\n       p.paragraph_text,\n       COUNT(*) AS outgoing_citations\nFROM   citations c\nLEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph\nWHERE  c.source_paragraph IS NOT NULL\nGROUP  BY c.source_celex, c.source_paragraph\nORDER  BY outgoing_citations DESC\nLIMIT  50"
         },
         "citation_counts_by_source": {
           "title": "Citation counts by source case",
           "description": "How many outgoing citations each source judgment contains",
-          "sql": "SELECT source_celex,\n       source_no_case,\n       COUNT(*) AS citations_made\nFROM   citations\nGROUP  BY source_celex\nORDER  BY citations_made DESC"
+          "sql": "SELECT source_celex,\n       COUNT(*) AS citations_made\nFROM   citations\nGROUP  BY source_celex\nORDER  BY citations_made DESC"
         },
         "paragraph_citation_detail": {
           "title": "Paragraph citation detail",
           "description": "Full list: source paragraph → cited case + paragraph (most frequent first)",
-          "sql": "SELECT c.source_celex,\n       c.source_no_case,\n       c.source_paragraph,\n       p.paragraph_text   AS source_paragraph_text,\n       c.cited_celex,\n       c.cited_no_case,\n       cp.paragraph        AS cited_paragraph,\n       COUNT(*)            AS occurrences\nFROM   citation_paragraphs cp\nJOIN   citations c ON cp.citation_id = c.id\nLEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph\nGROUP  BY c.source_celex, c.source_paragraph, c.cited_celex, cp.paragraph\nORDER  BY occurrences DESC, c.source_celex, cp.paragraph\nLIMIT  200"
+          "sql": "SELECT c.source_celex,\n       c.source_paragraph,\n       p.paragraph_text   AS source_paragraph_text,\n       c.cited_celex,\n       cp.paragraph        AS cited_paragraph,\n       COUNT(*)            AS occurrences\nFROM   citation_paragraphs cp\nJOIN   citations c ON cp.citation_id = c.id\nLEFT   JOIN paragraphs p ON p.celex = c.source_celex AND p.paragraph = c.source_paragraph\nGROUP  BY c.source_celex, c.source_paragraph, c.cited_celex, cp.paragraph\nORDER  BY occurrences DESC, c.source_celex, cp.paragraph\nLIMIT  200"
         }
       }
     }

@@ -1,6 +1,33 @@
+import logging
+from datetime import datetime, timezone
+from tqdm import tqdm
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 from casetoecli import search_case_no
+
+
+def setup_logger(name, log_path=None):
+    """Create (or reuse) a named logger with a tqdm-safe stream handler.
+
+    If *log_path* is given a FileHandler is also attached.
+    """
+    class TqdmHandler(logging.StreamHandler):
+        def emit(self, record):
+            tqdm.write(self.format(record))
+
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%SZ")
+    fmt.converter = lambda *_: datetime.now(timezone.utc).timetuple()
+    stream_handler = TqdmHandler()
+    stream_handler.setFormatter(fmt)
+    logger.addHandler(stream_handler)
+    if log_path:
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setFormatter(fmt)
+        logger.addHandler(file_handler)
+    return logger
 
 CACHE_CSV = "cases.csv"
 

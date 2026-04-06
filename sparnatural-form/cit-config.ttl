@@ -14,41 +14,30 @@
 
 # ── Node Shapes (Classes) ──────────────────────────────────────────────────────
 
-this:Citation a sh:NodeShape ;
+this:Paragraph a sh:NodeShape ;
   sh:order "1"^^xsd:integer ;
-  volipi:iconName "fa-solid fa-gavel" ;
-  sh:targetClass cit:Citation ;
+  volipi:iconName "fa-solid fa-paragraph" ;
+  sh:targetClass cit:Paragraph ;
   sh:nodeKind sh:IRI ;
-  rdfs:label "Citation"@en ;
-  sh:description "A citation from one judgment paragraph to another"@en ;
+  rdfs:label "Paragraph"@en ;
+  sh:description "A paragraph within a judgment"@en ;
   sh:property
-    this:Citation_sourceJudgment,
-    this:Citation_citedJudgment,
-    this:Citation_sourceParagraph,
-    this:Citation_citesParagraph .
+    this:Paragraph_ofJudgment,
+    this:Paragraph_cites,
+    this:Paragraph_number,
+    this:Paragraph_text .
 
-# Judgment URIs are not explicitly typed in the data, so no sh:targetClass.
-# Sparnatural will not add an rdf:type filter for this shape.
-# Judgment URIs are not explicitly typed; sh:property intentionally omitted so Sparnatural
-# does not auto-add a ?Judgment_X_label column. The title property is still accessible via
-# the property shape URI referenced in query.json.
+# Judgment URIs are typed eli:LegalResource; using sh:targetClass would pull in
+# all ELI resources. Leave untyped so Sparnatural does not add an rdf:type filter.
 this:Judgment a sh:NodeShape ;
   sh:order "2"^^xsd:integer ;
   volipi:iconName "fa-solid fa-scale-balanced" ;
   sh:nodeKind sh:IRI ;
   rdfs:label "Judgment"@en ;
-  sh:description "A CJEU judgment"@en .
-
-# Paragraph URIs are also not explicitly typed in the data.
-this:Paragraph a sh:NodeShape ;
-  sh:order "3"^^xsd:integer ;
-  volipi:iconName "fa-solid fa-paragraph" ;
-  sh:nodeKind sh:IRI ;
-  rdfs:label "Paragraph"@en ;
-  sh:description "A paragraph within a judgment"@en ;
+  sh:description "A CJEU judgment"@en ;
   sh:property
-    this:Paragraph_number,
-    this:Paragraph_text .
+    this:Judgment_title,
+    this:Judgment_identifier .
 
 # Literal range shape for judgment titles (rdf:langString values).
 this:TitleText a sh:NodeShape ;
@@ -80,33 +69,19 @@ this:ParaNumber a sh:NodeShape ;
 
 # ── Property Shapes ────────────────────────────────────────────────────────────
 
-this:Citation_sourceJudgment sh:path cit:sourceJudgment ;
-  sh:name "source judgment"@en ;
+this:Paragraph_ofJudgment sh:path cit:ofJudgment ;
+  sh:name "of judgment"@en ;
   sh:nodeKind sh:IRI ;
   sh:node this:Judgment ;
   dash:searchWidget core:NonSelectableProperty ;
-  core:enableOptional "true"^^xsd:boolean .
+  core:enableOptional "false"^^xsd:boolean .
 
-this:Citation_citedJudgment sh:path cit:citedJudgment ;
-  sh:name "cited judgment"@en ;
-  sh:nodeKind sh:IRI ;
-  sh:node this:Judgment ;
-  dash:searchWidget core:NonSelectableProperty ;
-  core:enableOptional "true"^^xsd:boolean .
-
-this:Citation_sourceParagraph sh:path cit:sourceParagraph ;
-  sh:name "source paragraph"@en ;
+this:Paragraph_cites sh:path cit:cites ;
+  sh:name "cites"@en ;
   sh:nodeKind sh:IRI ;
   sh:node this:Paragraph ;
   dash:searchWidget core:NonSelectableProperty ;
-  core:enableOptional "true"^^xsd:boolean .
-
-this:Citation_citesParagraph sh:path cit:citesParagraph ;
-  sh:name "cites paragraph"@en ;
-  sh:nodeKind sh:IRI ;
-  sh:node this:Paragraph ;
-  dash:searchWidget core:NonSelectableProperty ;
-  core:enableOptional "true"^^xsd:boolean .
+  core:enableOptional "false"^^xsd:boolean .
 
 this:Judgment_identifier sh:path dcterms:identifier ;
   sh:name "ECLI identifier"@en ;

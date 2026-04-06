@@ -1,0 +1,33 @@
+{
+  "citations": {
+    "hash": "79f30b67cbaa66557ed35d06900e162bdf07667daa985325390f47bcc4ab29d3",
+    "size": 1023893504,
+    "file": "citations.db",
+    "tables": {
+      "sqlite_stat1": {
+        "count": 9
+      },
+      "citation_paths": {
+        "count": 509454
+      },
+      "sqlite_sequence": {
+        "count": 3
+      },
+      "citations": {
+        "count": 191292
+      },
+      "citation_paragraphs": {
+        "count": 148477
+      },
+      "chains": {
+        "count": 509454
+      },
+      "cases": {
+        "count": 42769
+      },
+      "paragraphs": {
+        "count": 1571667
+      }
+    }
+  }
+}
